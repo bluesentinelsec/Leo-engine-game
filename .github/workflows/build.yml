@@ -29,7 +29,7 @@ jobs:
     - name: Test debug build (Windows)
       if: matrix.build_type == 'debug' && matrix.os == 'windows-latest'
       run: |
-        .\build-debug\leo-pong.exe
+        .\build-debug\bin\Debug\leo-pong.exe
         
     - name: Test debug build (Unix)
       if: matrix.build_type == 'debug' && matrix.os != 'windows-latest'
@@ -39,7 +39,7 @@ jobs:
     - name: Test release build (Windows)
       if: matrix.build_type == 'release' && matrix.os == 'windows-latest'
       run: |
-        .\build-release\leo-pong.exe
+        .\build-release\bin\Release\leo-pong.exe
         
     - name: Test release build (Unix)
       if: matrix.build_type == 'release' && matrix.os != 'windows-latest'
@@ -66,7 +66,7 @@ jobs:
       with:
         name: leo-pong-${{ matrix.os == 'ubuntu-latest' && 'linux' || matrix.os == 'windows-latest' && 'windows' || 'macos' }}-debug
         path: |
-          build-debug/leo-pong${{ matrix.os == 'windows-latest' && '.exe' || '' }}
+          ${{ matrix.os == 'windows-latest' && 'build-debug/bin/Debug/leo-pong.exe' || 'build-debug/leo-pong' }}
           
     - name: Upload release artifact
       if: matrix.build_type == 'release'
@@ -74,7 +74,7 @@ jobs:
       with:
         name: leo-pong-${{ matrix.os == 'ubuntu-latest' && 'linux' || matrix.os == 'windows-latest' && 'windows' || 'macos' }}-release
         path: |
-          build-release/leo-pong${{ matrix.os == 'windows-latest' && '.exe' || '' }}
+          ${{ matrix.os == 'windows-latest' && 'build-release/bin/Release/leo-pong.exe' || 'build-release/leo-pong' }}
           
     - name: Upload distribution artifact
       if: matrix.build_type == 'dist'
