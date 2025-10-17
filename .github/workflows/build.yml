@@ -36,15 +36,7 @@ jobs:
     - name: Test run (Windows)
       if: matrix.os == 'windows-latest'
       run: |
-        if (Test-Path ".\build\Release\leo_pong.exe") {
-          .\build\Release\leo_pong.exe
-        } elseif (Test-Path ".\build\leo_pong.exe") {
-          .\build\leo_pong.exe
-        } else {
-          Write-Host "Executable not found, listing build directory:"
-          Get-ChildItem -Recurse .\build\
-          exit 1
-        }
+        .\build\bin\Release\leo_pong.exe
         
     - name: Test run (Unix)
       if: matrix.os != 'windows-latest'
