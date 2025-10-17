@@ -11,11 +11,11 @@ all: release
 
 debug:
 	@mkdir -p $(BUILD_DIR_DEBUG)
-	@cd $(BUILD_DIR_DEBUG) && $(CMAKE) -DCMAKE_BUILD_TYPE=Debug .. && $(MAKE)
+	@cd $(BUILD_DIR_DEBUG) && $(CMAKE) -DCMAKE_BUILD_TYPE=Debug .. && $(CMAKE) --build . --config Debug
 
 release:
 	@mkdir -p $(BUILD_DIR_RELEASE)
-	@cd $(BUILD_DIR_RELEASE) && $(CMAKE) -DCMAKE_BUILD_TYPE=Release .. && $(MAKE)
+	@cd $(BUILD_DIR_RELEASE) && $(CMAKE) -DCMAKE_BUILD_TYPE=Release .. && $(CMAKE) --build . --config Release
 
 build: release
 
@@ -39,7 +39,8 @@ run-release: release
 install: release
 	@rm -rf dist
 	@mkdir -p dist
-	@cd $(BUILD_DIR_RELEASE) && $(MAKE) install DESTDIR=../dist
+	@cd $(BUILD_DIR_RELEASE) && $(CMAKE) --build . --target install --config Release
+	@mv $(BUILD_DIR_RELEASE)/dist/* dist/ 2>/dev/null || true
 ifeq ($(shell uname),Darwin)
 	@echo "Creating macOS app bundle..."
 	# Bundle is already named leo-pong-macos.app
