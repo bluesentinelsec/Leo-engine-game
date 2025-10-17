@@ -40,6 +40,14 @@ install: release
 	@rm -rf dist
 	@mkdir -p dist
 	@cd $(BUILD_DIR_RELEASE) && $(MAKE) install DESTDIR=../dist
+ifeq ($(shell uname),Darwin)
+	@echo "Creating macOS app bundle..."
+	# Bundle is already named leo-pong-macos.app
+else ifeq ($(OS),Windows_NT)
+	@echo "Creating Windows ZIP distribution..."
+	@cd dist && powershell -Command "Compress-Archive -Path * -DestinationPath ../leo-pong-windows.zip"
+	@mv leo-pong-windows.zip dist/
+endif
 
 dist: install
 
