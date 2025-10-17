@@ -12,6 +12,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
+        build_type: [debug, release, dist]
         
     steps:
     - uses: actions/checkout@v4
@@ -22,30 +23,56 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y build-essential cmake
         
-    - name: Configure CMake
-      run: cmake -B build -DCMAKE_BUILD_TYPE=Release
+    - name: Build ${{ matrix.build_type }}
+      run: make ${{ matrix.build_type }}
       
-    - name: Build
-      run: cmake --build build --config Release
-      
-    - name: Test run (Windows)
-      if: matrix.os == 'windows-latest'
+    - name: Test debug build
+      if: matrix.build_type == 'debug'
       run: |
-        .\build\bin\Release\leo-pong.exe
-        
-    - name: Test run (Unix)
-      if: matrix.os != 'windows-latest'
-      run: |
-        if [ "${{ matrix.os }}" = "macos-latest" ]; then
-          ./build/leo-pong.app/Contents/MacOS/leo-pong
+        if [ "${{ matrix.os }}" = "windows-latest" ]; then
+          .\build-debug\leo-pong.exe
         else
-          ./build/leo-pong
+          ./build-debug/leo-pong
         fi
         
-    - name: Create distribution
-      run: make install
-      
+    - name: Test release build
+      if: matrix.build_type == 'release'
+      run: |
+        if [ "${{ matrix.os }}" = "windows-latest" ]; then
+          .\build-release\leo-pong.exe
+        else
+          ./build-release/leo-pong
+        fi
+        
+    - name: Test dist build
+      if: matrix.build_type == 'dist'
+      run: |
+        if [ "${{ matrix.os }}" = "windows-latest" ]; then
+          .\build-release-dist\bin\Release\leo-pong.exe
+        elif [ "${{ matrix.os }}" = "macos-latest" ]; then
+          ./build-release-dist/leo-pong.app/Contents/MacOS/leo-pong
+        else
+          ./build-release-dist/leo-pong
+        fi
+        
+    - name: Upload debug artifact
+      if: matrix.build_type == 'debug'
+      uses: actions/upload-artifact@v4
+      with:
+        name: leo-pong-${{ matrix.os == 'ubuntu-latest' && 'linux' || matrix.os == 'windows-latest' && 'windows' || 'macos' }}-debug
+        path: |
+          build-debug/leo-pong${{ matrix.os == 'windows-latest' && '.exe' || '' }}
+          
+    - name: Upload release artifact
+      if: matrix.build_type == 'release'
+      uses: actions/upload-artifact@v4
+      with:
+        name: leo-pong-${{ matrix.os == 'ubuntu-latest' && 'linux' || matrix.os == 'windows-latest' && 'windows' || 'macos' }}-release
+        path: |
+          build-release/leo-pong${{ matrix.os == 'windows-latest' && '.exe' || '' }}
+          
     - name: Upload distribution artifact
+      if: matrix.build_type == 'dist'
       uses: actions/upload-artifact@v4
       with:
         name: leo-pong-${{ matrix.os == 'ubuntu-latest' && 'linux' || matrix.os == 'windows-latest' && 'windows' || 'macos' }}
