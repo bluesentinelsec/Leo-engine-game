@@ -31,10 +31,10 @@ clean-release:
 run: run-release
 
 run-debug: debug
-	@./$(BUILD_DIR_DEBUG)/leo_pong
+	@./$(BUILD_DIR_DEBUG)/leo-pong
 
 run-release: release
-	@./$(BUILD_DIR_RELEASE)/leo_pong
+	@./$(BUILD_DIR_RELEASE)/leo-pong
 
 install: release
 	@rm -rf dist
@@ -42,12 +42,16 @@ install: release
 	@cd $(BUILD_DIR_RELEASE) && DESTDIR=../dist $(CMAKE) --build . --target install --config Release
 ifeq ($(shell uname),Darwin)
 	@echo "Creating macOS app bundle..."
-	@mv dist/usr/local/leo-pong-macos.app dist/
+	@mv dist/usr/local/leo-pong.app dist/
 	@rm -rf dist/usr
 else ifeq ($(OS),Windows_NT)
 	@echo "Creating Windows ZIP distribution..."
-	@cd dist && powershell -Command "Compress-Archive -Path * -DestinationPath ../leo-pong-windows.zip"
-	@mv leo-pong-windows.zip dist/
+	@mv "dist/Program Files (x86)/leo_pong/bin/leo-pong.exe" dist/
+	@cp -r "dist/Program Files (x86)/leo_pong/share/leo_pong/resources" dist/ 2>/dev/null || true
+	@rm -rf "dist/Program Files (x86)"
+	@cd dist && powershell -Command "Compress-Archive -Path leo-pong.exe,resources -DestinationPath leo-pong-windows.zip"
+	@rm dist/leo-pong.exe
+	@rm -rf dist/resources
 endif
 
 dist: install

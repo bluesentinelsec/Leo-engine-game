@@ -31,15 +31,15 @@ jobs:
     - name: Test run (Windows)
       if: matrix.os == 'windows-latest'
       run: |
-        .\build\bin\Release\leo_pong.exe
+        .\build\bin\Release\leo-pong.exe
         
     - name: Test run (Unix)
       if: matrix.os != 'windows-latest'
       run: |
         if [ "${{ matrix.os }}" = "macos-latest" ]; then
-          ./build/leo-pong-macos.app/Contents/MacOS/leo-pong-macos
+          ./build/leo-pong.app/Contents/MacOS/leo-pong
         else
-          ./build/leo_pong
+          ./build/leo-pong
         fi
         
     - name: Create distribution

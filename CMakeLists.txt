@@ -25,7 +25,15 @@ if(APPLE)
     set_target_properties(${PROJECT_NAME} PROPERTIES
         MACOSX_BUNDLE TRUE
         MACOSX_BUNDLE_INFO_PLIST ${CMAKE_SOURCE_DIR}/misc/Info.plist
-        OUTPUT_NAME "leo-pong-macos"
+        OUTPUT_NAME "leo-pong"
+    )
+elseif(WIN32)
+    set_target_properties(${PROJECT_NAME} PROPERTIES
+        OUTPUT_NAME "leo-pong"
+    )
+else()
+    set_target_properties(${PROJECT_NAME} PROPERTIES
+        OUTPUT_NAME "leo-pong"
     )
 endif()
 
@@ -44,7 +52,7 @@ if(APPLE)
         BUNDLE DESTINATION .
     )
     install(DIRECTORY resources/
-        DESTINATION leo-pong-macos.app/Contents/Resources
+        DESTINATION leo-pong.app/Contents/Resources
         FILES_MATCHING PATTERN "*"
     )
 else()
