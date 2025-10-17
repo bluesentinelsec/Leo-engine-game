@@ -12,8 +12,6 @@ elseif(APPLE)
     set(CMAKE_OSX_ARCHITECTURES "x86_64;arm64")
     # Target current LTS (macOS 14 Sonoma)
     set(CMAKE_OSX_DEPLOYMENT_TARGET "14.0")
-    # Set install prefix to root for clean dist structure
-    set(CMAKE_INSTALL_PREFIX "")
 endif()
 
 # Source files

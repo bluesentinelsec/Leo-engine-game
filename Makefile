@@ -39,8 +39,7 @@ run-release: release
 install: release
 	@rm -rf dist
 	@mkdir -p dist
-	@cd $(BUILD_DIR_RELEASE) && $(CMAKE) --build . --target install --config Release
-	@mv $(BUILD_DIR_RELEASE)/dist/* dist/ 2>/dev/null || true
+	@cd $(BUILD_DIR_RELEASE) && DESTDIR=../dist $(CMAKE) --build . --target install --config Release
 ifeq ($(shell uname),Darwin)
 	@echo "Creating macOS app bundle..."
 	# Bundle is already named leo-pong-macos.app
