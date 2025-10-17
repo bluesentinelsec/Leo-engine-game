@@ -38,6 +38,15 @@ jobs:
       run: |
         ./build/leo_pong
         
+    - name: Debug make targets
+      run: |
+        echo "Current directory:"
+        pwd
+        echo "Makefile exists:"
+        ls -la Makefile
+        echo "Available make targets:"
+        make help
+        
     - name: Create distribution
       run: make install
       
