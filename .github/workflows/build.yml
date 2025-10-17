@@ -35,5 +35,8 @@ jobs:
       
     - name: Test run
       run: |
-        cd build
-        ./leo_pong || ./Release/leo_pong.exe || ./leo_pong.exe
+        if [ "${{ matrix.os }}" = "windows-latest" ]; then
+          ./build/Release/leo_pong.exe || ./build/leo_pong.exe
+        else
+          ./build/leo_pong
+        fi
