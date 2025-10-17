@@ -26,30 +26,35 @@ jobs:
     - name: Build ${{ matrix.build_type }}
       run: make ${{ matrix.build_type }}
       
-    - name: Test debug build
-      if: matrix.build_type == 'debug'
+    - name: Test debug build (Windows)
+      if: matrix.build_type == 'debug' && matrix.os == 'windows-latest'
       run: |
-        if [ "${{ matrix.os }}" = "windows-latest" ]; then
-          .\build-debug\leo-pong.exe
-        else
-          ./build-debug/leo-pong
-        fi
+        .\build-debug\leo-pong.exe
         
-    - name: Test release build
-      if: matrix.build_type == 'release'
+    - name: Test debug build (Unix)
+      if: matrix.build_type == 'debug' && matrix.os != 'windows-latest'
       run: |
-        if [ "${{ matrix.os }}" = "windows-latest" ]; then
-          .\build-release\leo-pong.exe
-        else
-          ./build-release/leo-pong
-        fi
+        ./build-debug/leo-pong
         
-    - name: Test dist build
-      if: matrix.build_type == 'dist'
+    - name: Test release build (Windows)
+      if: matrix.build_type == 'release' && matrix.os == 'windows-latest'
       run: |
-        if [ "${{ matrix.os }}" = "windows-latest" ]; then
-          .\build-release-dist\bin\Release\leo-pong.exe
-        elif [ "${{ matrix.os }}" = "macos-latest" ]; then
+        .\build-release\leo-pong.exe
+        
+    - name: Test release build (Unix)
+      if: matrix.build_type == 'release' && matrix.os != 'windows-latest'
+      run: |
+        ./build-release/leo-pong
+        
+    - name: Test dist build (Windows)
+      if: matrix.build_type == 'dist' && matrix.os == 'windows-latest'
+      run: |
+        .\build-release-dist\bin\Release\leo-pong.exe
+        
+    - name: Test dist build (Unix)
+      if: matrix.build_type == 'dist' && matrix.os != 'windows-latest'
+      run: |
+        if [ "${{ matrix.os }}" = "macos-latest" ]; then
           ./build-release-dist/leo-pong.app/Contents/MacOS/leo-pong
         else
           ./build-release-dist/leo-pong
