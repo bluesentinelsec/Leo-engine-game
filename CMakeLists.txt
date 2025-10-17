@@ -4,6 +4,9 @@ project(leo_pong VERSION 1.0.0 LANGUAGES C)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 
+# Distribution build option
+option(DIST_BUILD "Build for distribution (macOS app bundle)" OFF)
+
 # Platform-specific settings
 if(WIN32)
     set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
@@ -21,14 +24,10 @@ file(GLOB_RECURSE SOURCES "src/*.c")
 add_executable(${PROJECT_NAME} ${SOURCES})
 
 # Platform-specific executable configuration
-if(APPLE)
+if(APPLE AND DIST_BUILD)
     set_target_properties(${PROJECT_NAME} PROPERTIES
         MACOSX_BUNDLE TRUE
         MACOSX_BUNDLE_INFO_PLIST ${CMAKE_SOURCE_DIR}/misc/Info.plist
-        OUTPUT_NAME "leo-pong"
-    )
-elseif(WIN32)
-    set_target_properties(${PROJECT_NAME} PROPERTIES
         OUTPUT_NAME "leo-pong"
     )
 else()
@@ -47,7 +46,7 @@ elseif(UNIX)
 endif()
 
 # Install target
-if(APPLE)
+if(APPLE AND DIST_BUILD)
     install(TARGETS ${PROJECT_NAME}
         BUNDLE DESTINATION .
     )

@@ -20,7 +20,7 @@ release:
 build: release
 
 clean: clean-debug clean-release
-	@rm -rf dist
+	@rm -rf dist $(BUILD_DIR_RELEASE)-dist
 
 clean-debug:
 	@rm -rf $(BUILD_DIR_DEBUG)
@@ -36,10 +36,12 @@ run-debug: debug
 run-release: release
 	@./$(BUILD_DIR_RELEASE)/leo-pong
 
-install: release
+install: 
 	@rm -rf dist
 	@mkdir -p dist
-	@cd $(BUILD_DIR_RELEASE) && DESTDIR=../dist $(CMAKE) --build . --target install --config Release
+	@mkdir -p $(BUILD_DIR_RELEASE)-dist
+	@cd $(BUILD_DIR_RELEASE)-dist && $(CMAKE) -DCMAKE_BUILD_TYPE=Release -DDIST_BUILD=ON .. && $(CMAKE) --build . --config Release
+	@cd $(BUILD_DIR_RELEASE)-dist && DESTDIR=../dist $(CMAKE) --build . --target install --config Release
 ifeq ($(shell uname),Darwin)
 	@echo "Creating macOS app bundle..."
 	@mv dist/usr/local/leo-pong.app dist/
