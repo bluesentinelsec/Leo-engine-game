@@ -64,7 +64,7 @@ jobs:
       if: matrix.build_type == 'debug'
       uses: actions/upload-artifact@v4
       with:
-        name: leo-pong-${{ matrix.os == 'ubuntu-latest' && 'linux' || matrix.os == 'windows-latest' && 'windows' || 'macos' }}-debug
+        name: leo-pong-${{ matrix.os == 'ubuntu-latest' && 'linux-amd64' || matrix.os == 'windows-latest' && 'windows-amd64' || 'macos-universal' }}-debug
         path: |
           ${{ matrix.os == 'windows-latest' && 'build-debug/bin/Debug/leo-pong.exe' || 'build-debug/leo-pong' }}
           
@@ -72,7 +72,7 @@ jobs:
       if: matrix.build_type == 'release'
       uses: actions/upload-artifact@v4
       with:
-        name: leo-pong-${{ matrix.os == 'ubuntu-latest' && 'linux' || matrix.os == 'windows-latest' && 'windows' || 'macos' }}-release
+        name: leo-pong-${{ matrix.os == 'ubuntu-latest' && 'linux-amd64' || matrix.os == 'windows-latest' && 'windows-amd64' || 'macos-universal' }}-release
         path: |
           ${{ matrix.os == 'windows-latest' && 'build-release/bin/Release/leo-pong.exe' || 'build-release/leo-pong' }}
           
@@ -80,5 +80,5 @@ jobs:
       if: matrix.build_type == 'dist'
       uses: actions/upload-artifact@v4
       with:
-        name: leo-pong-${{ matrix.os == 'ubuntu-latest' && 'linux' || matrix.os == 'windows-latest' && 'windows' || 'macos' }}
+        name: leo-pong-${{ matrix.os == 'ubuntu-latest' && 'linux-amd64' || matrix.os == 'windows-latest' && 'windows-amd64' || 'macos-universal' }}-dist
         path: dist/
