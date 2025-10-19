@@ -4,6 +4,11 @@ project(leo_pong VERSION 1.0.0 LANGUAGES C)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 
+# Leo engine dependency
+include(FetchContent)
+set(LEO_BUILD_SHARED ON CACHE BOOL "Build Leo as shared" FORCE)
+set(LEO_BUILD_TESTS OFF CACHE BOOL "Skip tests" FORCE)
+
 # Distribution build option
 option(DIST_BUILD "Build for distribution (macOS app bundle)" OFF)
 
@@ -22,6 +27,15 @@ file(GLOB_RECURSE SOURCES "src/*.c")
 
 # Create executable
 add_executable(${PROJECT_NAME} ${SOURCES})
+
+# Fetch Leo engine and link it
+FetchContent_Declare(
+        leo
+        GIT_REPOSITORY https://github.com/bluesentinelsec/leo-engine
+        GIT_TAG main
+)
+FetchContent_MakeAvailable(leo)
+
 
 # Platform-specific executable configuration
 if(APPLE AND DIST_BUILD)
@@ -44,6 +58,8 @@ elseif(APPLE)
 elseif(UNIX)
     # Linux-specific libraries if needed
 endif()
+
+target_link_libraries(${PROJECT_NAME} PRIVATE Leo::Runtime)
 
 # Install target
 if(APPLE AND DIST_BUILD)
