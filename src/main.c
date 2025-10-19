@@ -19,7 +19,7 @@ static bool game_setup(leo_GameContext *ctx)
 
 static void game_update(leo_GameContext *ctx)
 {
-    if (leo_IsKeyReleased(KEY_ESCAPE))
+    if (leo_IsKeyReleased(KEY_ESCAPE) || ctx->frame >= 1)
     {
         leo_GameQuit(ctx);
     }
