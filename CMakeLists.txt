@@ -65,6 +65,10 @@ if(APPLE)
     # Ensure the bundled app can locate shared libs in its Frameworks directory
     set_property(TARGET ${PROJECT_NAME} APPEND PROPERTY BUILD_RPATH "@executable_path/../Frameworks")
     set_property(TARGET ${PROJECT_NAME} APPEND PROPERTY INSTALL_RPATH "@executable_path/../Frameworks")
+elseif(UNIX)
+    # On Linux, load shared libs from alongside the executable
+    set_property(TARGET ${PROJECT_NAME} APPEND PROPERTY BUILD_RPATH "\$ORIGIN")
+    set_property(TARGET ${PROJECT_NAME} APPEND PROPERTY INSTALL_RPATH "\$ORIGIN")
 endif()
 
 target_link_libraries(${PROJECT_NAME} PRIVATE Leo::Runtime)
