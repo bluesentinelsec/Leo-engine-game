@@ -21,7 +21,14 @@ jobs:
       if: matrix.os == 'ubuntu-latest'
       run: |
         sudo apt-get update
-        sudo apt-get install -y build-essential cmake libsdl3-0
+        sudo apt-get install -y build-essential cmake libsdl2-dev xvfb xauth
+
+    - name: Set up virtual framebuffer (Ubuntu)
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        export DISPLAY=:99
+        nohup Xvfb :99 -screen 0 1280x720x24 >/dev/null 2>&1 &
+        echo "DISPLAY=${DISPLAY}" >> $GITHUB_ENV
         
     - name: Build ${{ matrix.build_type }}
       run: make ${{ matrix.build_type }}
