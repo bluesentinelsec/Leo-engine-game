@@ -1,12 +1,16 @@
 #include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
+#include <getopt.h>
 #include <leo/leo.h>
 
 typedef struct
 {
     int rect_width;
     int rect_height;
+    bool one_frame;
 } GameState;
 
 static bool game_setup(leo_GameContext *ctx)
@@ -19,7 +23,15 @@ static bool game_setup(leo_GameContext *ctx)
 
 static void game_update(leo_GameContext *ctx)
 {
-    if (leo_IsKeyReleased(KEY_ESCAPE) || ctx->frame >= 1)
+    GameState *state = ctx->user_data;
+
+    if (leo_IsKeyReleased(KEY_ESCAPE))
+    {
+        leo_GameQuit(ctx);
+        return;
+    }
+
+    if (state->one_frame && ctx->frame >= 1)
     {
         leo_GameQuit(ctx);
     }
@@ -43,12 +55,38 @@ static void game_shutdown(leo_GameContext *ctx)
     (void)ctx;
 }
 
-int main(void)
+static void print_usage(const char *prog)
+{
+    fprintf(stderr, "Usage: %s [--one-frame]\n", prog);
+}
+
+int main(int argc, char **argv)
 {
     GameState state = {
         .rect_width = 240,
         .rect_height = 140,
+        .one_frame = false,
     };
+
+    static struct option long_opts[] = {
+        {"one-frame", no_argument, NULL, '1'},
+        {NULL, 0, NULL, 0},
+    };
+
+    int opt;
+    while ((opt = getopt_long(argc, argv, "1", long_opts, NULL)) != -1)
+    {
+        switch (opt)
+        {
+        case '1':
+            state.one_frame = true;
+            break;
+        case '?':
+        default:
+            print_usage(argv[0]);
+            return EXIT_FAILURE;
+        }
+    }
 
     leo_GameConfig config = {
         .window_width = 1280,

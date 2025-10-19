@@ -24,9 +24,11 @@ endif()
 
 # Source files
 file(GLOB_RECURSE SOURCES "src/*.c")
+list(APPEND SOURCES external/getopt/getopt.c)
 
 # Create executable
 add_executable(${PROJECT_NAME} ${SOURCES})
+target_include_directories(${PROJECT_NAME} PRIVATE external/getopt)
 
 # Fetch Leo engine and link it
 FetchContent_Declare(
@@ -59,6 +61,12 @@ elseif(UNIX)
     # Linux-specific libraries if needed
 endif()
 
+if(APPLE)
+    # Ensure the bundled app can locate shared libs in its Frameworks directory
+    set_property(TARGET ${PROJECT_NAME} APPEND PROPERTY BUILD_RPATH "@executable_path/../Frameworks")
+    set_property(TARGET ${PROJECT_NAME} APPEND PROPERTY INSTALL_RPATH "@executable_path/../Frameworks")
+endif()
+
 target_link_libraries(${PROJECT_NAME} PRIVATE Leo::Runtime)
 
 # Install target
@@ -66,6 +74,14 @@ if(APPLE AND DIST_BUILD)
     install(TARGETS ${PROJECT_NAME}
         BUNDLE DESTINATION .
     )
+    install(TARGETS leo
+        LIBRARY DESTINATION leo-pong.app/Contents/Frameworks
+    )
+    if(TARGET SDL3-shared)
+        install(TARGETS SDL3-shared
+            LIBRARY DESTINATION leo-pong.app/Contents/Frameworks
+        )
+    endif()
     install(DIRECTORY resources/
         DESTINATION leo-pong.app/Contents/Resources
         FILES_MATCHING PATTERN "*"

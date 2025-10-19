@@ -21,7 +21,7 @@ jobs:
       if: matrix.os == 'ubuntu-latest'
       run: |
         sudo apt-get update
-        sudo apt-get install -y build-essential cmake
+        sudo apt-get install -y build-essential cmake libsdl3-0
         
     - name: Build ${{ matrix.build_type }}
       run: make ${{ matrix.build_type }}
@@ -29,35 +29,35 @@ jobs:
     - name: Test debug build (Windows)
       if: matrix.build_type == 'debug' && matrix.os == 'windows-latest'
       run: |
-        .\build-debug\bin\Debug\leo-pong.exe
+        .\build-debug\bin\Debug\leo-pong.exe --one-frame
         
     - name: Test debug build (Unix)
       if: matrix.build_type == 'debug' && matrix.os != 'windows-latest'
       run: |
-        ./build-debug/leo-pong
+        ./build-debug/leo-pong --one-frame
         
     - name: Test release build (Windows)
       if: matrix.build_type == 'release' && matrix.os == 'windows-latest'
       run: |
-        .\build-release\bin\Release\leo-pong.exe
+        .\build-release\bin\Release\leo-pong.exe --one-frame
         
     - name: Test release build (Unix)
       if: matrix.build_type == 'release' && matrix.os != 'windows-latest'
       run: |
-        ./build-release/leo-pong
+        ./build-release/leo-pong --one-frame
         
     - name: Test dist build (Windows)
       if: matrix.build_type == 'dist' && matrix.os == 'windows-latest'
       run: |
-        .\build-release-dist\bin\Release\leo-pong.exe
+        .\build-release-dist\bin\Release\leo-pong.exe --one-frame
         
     - name: Test dist build (Unix)
       if: matrix.build_type == 'dist' && matrix.os != 'windows-latest'
       run: |
         if [ "${{ matrix.os }}" = "macos-latest" ]; then
-          ./build-release-dist/leo-pong.app/Contents/MacOS/leo-pong
+          ./build-release-dist/leo-pong.app/Contents/MacOS/leo-pong --one-frame
         else
-          ./build-release-dist/leo-pong
+          ./build-release-dist/leo-pong --one-frame
         fi
         
     - name: Upload debug artifact
