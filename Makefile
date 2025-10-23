@@ -40,21 +40,29 @@ install:
 	@rm -rf dist
 	@mkdir -p dist
 	@mkdir -p $(BUILD_DIR_RELEASE)-dist
-	@cd $(BUILD_DIR_RELEASE)-dist && $(CMAKE) -DCMAKE_BUILD_TYPE=Release -DDIST_BUILD=ON .. && $(CMAKE) --build . --config Release
+	@cd $(BUILD_DIR_RELEASE)-dist && $(CMAKE) -DCMAKE_BUILD_TYPE=Release -DDIST_BUILD=ON -DCMAKE_INSTALL_PREFIX=/ .. && $(CMAKE) --build . --config Release
 	@cd $(BUILD_DIR_RELEASE)-dist && DESTDIR=../dist $(CMAKE) --build . --target install --config Release
 ifeq ($(shell uname),Darwin)
 	@echo "Creating macOS app bundle..."
-	@mv dist/usr/local/leo-pong.app dist/
-	@rm -rf dist/usr
+	@if [ -d dist/usr/local/leo-pong.app ]; then \
+		mv dist/usr/local/leo-pong.app dist/; \
+		rm -rf dist/usr; \
+	fi
 else ifeq ($(OS),Windows_NT)
 	@echo "Creating Windows ZIP distribution..."
-	@mv "dist/Program Files (x86)/leo_pong/bin/leo-pong.exe" dist/
-	@cp -r "dist/Program Files (x86)/leo_pong/share/leo_pong/resources" dist/ 2>/dev/null || true
-	@rm -rf "dist/Program Files (x86)"
-	@cd dist && powershell -Command "Compress-Archive -Path leo-pong.exe,resources -DestinationPath leo-pong-windows.zip"
-	@rm dist/leo-pong.exe
-	@rm -rf dist/resources
+	@powershell -NoProfile -Command "\
+		$src = Join-Path (Get-Location) 'dist\\leo-pong'; \
+		if (-not (Test-Path $src)) { \
+			$src = Join-Path (Get-Location) 'dist\\Program Files (x86)\\leo_pong'; \
+		} \
+		if (Test-Path $src) { \
+			$zip = Join-Path (Get-Location) 'dist\\leo-pong-windows.zip'; \
+			if (Test-Path $zip) { Remove-Item $zip; } \
+			Compress-Archive -Path (Join-Path $src '*') -DestinationPath $zip; \
+		} \
+	"
 endif
+	@rm -rf dist/include dist/lib dist/share dist/usr
 
 dist: install
 

@@ -72,6 +72,35 @@ elseif(UNIX)
 endif()
 
 target_link_libraries(${PROJECT_NAME} PRIVATE Leo::Runtime)
+if(TARGET SDL3::SDL3-shared)
+    target_link_libraries(${PROJECT_NAME} PRIVATE SDL3::SDL3-shared)
+endif()
+
+if(TARGET SDL3-shared)
+    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<TARGET_FILE:SDL3-shared>
+            $<TARGET_FILE_DIR:${PROJECT_NAME}>
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<TARGET_SONAME_FILE:SDL3-shared>
+            $<TARGET_FILE_DIR:${PROJECT_NAME}>/$<TARGET_SONAME_FILE_NAME:SDL3-shared>
+    )
+endif()
+
+if(TARGET Leo::Runtime)
+    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<TARGET_FILE:Leo::Runtime>
+            $<TARGET_FILE_DIR:${PROJECT_NAME}>
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<TARGET_SONAME_FILE:Leo::Runtime>
+            $<TARGET_FILE_DIR:${PROJECT_NAME}>/$<TARGET_SONAME_FILE_NAME:Leo::Runtime>
+    )
+endif()
+
+if(UNIX AND NOT APPLE)
+    target_link_options(${PROJECT_NAME} PRIVATE "-Wl,-z,origin")
+endif()
 
 # Install target
 if(APPLE AND DIST_BUILD)
@@ -91,13 +120,32 @@ if(APPLE AND DIST_BUILD)
         FILES_MATCHING PATTERN "*"
     )
 else()
+    set(_install_runtime_dir "leo-pong")
     install(TARGETS ${PROJECT_NAME}
-        RUNTIME DESTINATION bin
-        LIBRARY DESTINATION lib
-        ARCHIVE DESTINATION lib
+        RUNTIME DESTINATION ${_install_runtime_dir}
     )
     install(DIRECTORY resources/
-        DESTINATION share/${PROJECT_NAME}/resources
+        DESTINATION ${_install_runtime_dir}/resources
         FILES_MATCHING PATTERN "*"
     )
+    if(TARGET Leo::Runtime)
+        install(FILES $<TARGET_FILE:Leo::Runtime>
+            DESTINATION ${_install_runtime_dir}
+        )
+        if(UNIX AND NOT APPLE)
+            install(FILES $<TARGET_SONAME_FILE:Leo::Runtime>
+                DESTINATION ${_install_runtime_dir}
+            )
+        endif()
+    endif()
+    if(TARGET SDL3::SDL3-shared)
+        install(FILES $<TARGET_FILE:SDL3::SDL3-shared>
+            DESTINATION ${_install_runtime_dir}
+        )
+        if(UNIX AND NOT APPLE)
+            install(FILES $<TARGET_SONAME_FILE:SDL3::SDL3-shared>
+                DESTINATION ${_install_runtime_dir}
+            )
+        endif()
+    endif()
 endif()
