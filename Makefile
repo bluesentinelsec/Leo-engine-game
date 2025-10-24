@@ -50,11 +50,11 @@ ifeq ($(shell uname),Darwin)
 	fi
 else ifeq ($(OS),Windows_NT)
 	@echo "Creating Windows ZIP distribution..."
-	@cmake -E rm -f dist/leo-pong-windows-amd64-dist.zip
+	@cmake -E rm -f dist/leo-pong-windows-amd64-dist.zip dist/leo-pong-windows-amd64-dist-gha.zip leo-pong-windows-amd64-dist.zip leo-pong-windows-amd64-dist-gha.zip
 	@cmake -E rename dist dist-full
 	@cmake -E make_directory dist
 	@cmake -E copy_directory dist-full/leo-pong dist/leo-pong
-	@cmake -E chdir dist cmake -E tar cf ../leo-pong-windows-amd64-dist.zip --format=zip leo-pong
+	@cmake -E chdir dist cmake -E tar cf ../leo-pong-windows-amd64-dist-gha.zip --format=zip leo-pong
 	@cmake -E remove_directory dist-full
 endif
 	@rm -rf dist/include dist/lib dist/share dist/usr
