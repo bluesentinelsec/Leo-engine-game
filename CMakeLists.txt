@@ -158,16 +158,50 @@ else()
     endif()
     if(WIN32)
         install(CODE [===[
-            set(_prefix "$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}")
-            if(_prefix STREQUAL "")
-                set(_prefix "${CMAKE_INSTALL_PREFIX}")
+            set(_destdir "$ENV{DESTDIR}")
+            if(_destdir STREQUAL "")
+                set(_destdir "")
+            else()
+                file(TO_CMAKE_PATH "${_destdir}" _destdir)
+                if(NOT IS_ABSOLUTE "${_destdir}")
+                    get_filename_component(_destdir "${CMAKE_CURRENT_BINARY_DIR}/${_destdir}" ABSOLUTE)
+                endif()
             endif()
-            file(TO_CMAKE_PATH "${_prefix}" _prefix)
+
+            file(TO_CMAKE_PATH "${CMAKE_INSTALL_PREFIX}" _install_prefix)
+            if(_install_prefix MATCHES "^[A-Za-z]:")
+                string(SUBSTRING "${_install_prefix}" 2 -1 _install_prefix)
+            endif()
+
+            if(_destdir STREQUAL "")
+                set(_install_root "${_install_prefix}")
+            else()
+                set(_install_root "${_destdir}${_install_prefix}")
+            endif()
+            if(_install_root STREQUAL "")
+                if(_destdir STREQUAL "")
+                    set(_install_root "${CMAKE_CURRENT_BINARY_DIR}")
+                else()
+                    set(_install_root "${_destdir}")
+                endif()
+            endif()
+
+            if(_destdir STREQUAL "")
+                set(_dist_root "${_install_root}")
+            else()
+                set(_dist_root "${_destdir}")
+            endif()
+            if(_dist_root STREQUAL "")
+                set(_dist_root "${CMAKE_CURRENT_BINARY_DIR}/dist")
+            endif()
+
+            set(_target_dir "${_dist_root}/leo-pong")
+            file(MAKE_DIRECTORY "${_target_dir}")
+
             set(_candidates
-                "${_prefix}/leo-pong"
-                "${_prefix}/Program Files/Git/leo-pong"
-                "${_prefix}/Program Files/leo_pong"
-                "${_prefix}/Program Files (x86)/leo_pong"
+                "${_install_root}/leo-pong"
+                "${_install_root}/leo_pong"
+                "${_install_root}"
             )
             set(_source "")
             foreach(_candidate IN LISTS _candidates)
@@ -177,46 +211,54 @@ else()
                 endif()
             endforeach()
             if(_source STREQUAL "")
-                file(GLOB_RECURSE _exe_fallback "${_prefix}/leo-pong.exe")
+                file(GLOB_RECURSE _exe_fallback "${_install_root}/leo-pong.exe")
                 if(_exe_fallback)
                     list(GET _exe_fallback 0 _tmp_exe)
                     get_filename_component(_source "${_tmp_exe}" DIRECTORY)
                 endif()
             endif()
 
-            set(_target_dir "${_prefix}/leo-pong")
-            file(MAKE_DIRECTORY "${_target_dir}")
-
             if(NOT _source STREQUAL "")
                 if(NOT _source STREQUAL "${_target_dir}")
                     file(COPY "${_source}/" DESTINATION "${_target_dir}")
-                    file(REMOVE_RECURSE "${_source}")
+                    if(NOT _source STREQUAL "${_install_root}")
+                        file(REMOVE_RECURSE "${_source}")
+                    endif()
                 endif()
             endif()
 
             set(_bin_candidates
-                "${_prefix}/Program Files/Git/bin"
-                "${_prefix}/bin"
+                "${_install_root}/bin"
+                "${_install_root}/../bin"
             )
+            if(NOT _dist_root STREQUAL "")
+                list(APPEND _bin_candidates "${_dist_root}/bin")
+            endif()
             foreach(_bin_dir IN LISTS _bin_candidates)
                 if(EXISTS "${_bin_dir}")
                     file(GLOB _dlls "${_bin_dir}/*.dll")
                     foreach(_dll IN LISTS _dlls)
                         file(COPY "${_dll}" DESTINATION "${_target_dir}")
                     endforeach()
-                    file(REMOVE_RECURSE "${_bin_dir}")
+                    if(NOT _bin_dir STREQUAL "${_target_dir}")
+                        file(REMOVE_RECURSE "${_bin_dir}")
+                    endif()
                 endif()
             endforeach()
 
+            if(NOT _install_root STREQUAL "" AND NOT _install_root STREQUAL "${_target_dir}")
+                file(REMOVE_RECURSE "${_install_root}")
+            endif()
+
             foreach(_extra "include" "lib" "share" "licenses" "cmake")
-                set(_extra_path "${_prefix}/${_extra}")
+                set(_extra_path "${_dist_root}/${_extra}")
                 if(EXISTS "${_extra_path}")
                     file(REMOVE_RECURSE "${_extra_path}")
                 endif()
             endforeach()
 
             foreach(_maybe "Program Files" "Program Files (x86)")
-                set(_maybe_path "${_prefix}/${_maybe}")
+                set(_maybe_path "${_dist_root}/${_maybe}")
                 if(EXISTS "${_maybe_path}")
                     file(REMOVE_RECURSE "${_maybe_path}")
                 endif()
