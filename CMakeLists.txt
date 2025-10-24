@@ -81,10 +81,14 @@ if(TARGET SDL3-shared)
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
             $<TARGET_FILE:SDL3-shared>
             $<TARGET_FILE_DIR:${PROJECT_NAME}>
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            $<TARGET_SONAME_FILE:SDL3-shared>
-            $<TARGET_FILE_DIR:${PROJECT_NAME}>/$<TARGET_SONAME_FILE_NAME:SDL3-shared>
     )
+    if(NOT WIN32)
+        add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                $<TARGET_SONAME_FILE:SDL3-shared>
+                $<TARGET_FILE_DIR:${PROJECT_NAME}>/$<TARGET_SONAME_FILE_NAME:SDL3-shared>
+        )
+    endif()
 endif()
 
 if(TARGET Leo::Runtime)
@@ -92,10 +96,14 @@ if(TARGET Leo::Runtime)
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
             $<TARGET_FILE:Leo::Runtime>
             $<TARGET_FILE_DIR:${PROJECT_NAME}>
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            $<TARGET_SONAME_FILE:Leo::Runtime>
-            $<TARGET_FILE_DIR:${PROJECT_NAME}>/$<TARGET_SONAME_FILE_NAME:Leo::Runtime>
     )
+    if(NOT WIN32)
+        add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                $<TARGET_SONAME_FILE:Leo::Runtime>
+                $<TARGET_FILE_DIR:${PROJECT_NAME}>/$<TARGET_SONAME_FILE_NAME:Leo::Runtime>
+        )
+    endif()
 endif()
 
 if(UNIX AND NOT APPLE)
