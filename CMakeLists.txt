@@ -156,4 +156,77 @@ else()
             )
         endif()
     endif()
+    if(WIN32)
+        install(CODE [===[
+            set(_prefix "$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}")
+            if(_prefix STREQUAL "")
+                set(_prefix "${CMAKE_INSTALL_PREFIX}")
+            endif()
+            file(TO_CMAKE_PATH "${_prefix}" _prefix)
+            set(_candidates
+                "${_prefix}/leo-pong"
+                "${_prefix}/Program Files/Git/leo-pong"
+                "${_prefix}/Program Files/leo_pong"
+                "${_prefix}/Program Files (x86)/leo_pong"
+            )
+            set(_source "")
+            foreach(_candidate IN LISTS _candidates)
+                if(EXISTS "${_candidate}/leo-pong.exe")
+                    set(_source "${_candidate}")
+                    break()
+                endif()
+            endforeach()
+            if(_source STREQUAL "")
+                file(GLOB_RECURSE _exe_fallback "${_prefix}/leo-pong.exe")
+                if(_exe_fallback)
+                    list(GET _exe_fallback 0 _tmp_exe)
+                    get_filename_component(_source "${_tmp_exe}" DIRECTORY)
+                endif()
+            endif()
+
+            set(_target_dir "${_prefix}/leo-pong")
+            file(MAKE_DIRECTORY "${_target_dir}")
+
+            if(NOT _source STREQUAL "")
+                if(NOT _source STREQUAL "${_target_dir}")
+                    file(COPY "${_source}/" DESTINATION "${_target_dir}")
+                    file(REMOVE_RECURSE "${_source}")
+                endif()
+            endif()
+
+            set(_bin_candidates
+                "${_prefix}/Program Files/Git/bin"
+                "${_prefix}/bin"
+            )
+            foreach(_bin_dir IN LISTS _bin_candidates)
+                if(EXISTS "${_bin_dir}")
+                    file(GLOB _dlls "${_bin_dir}/*.dll")
+                    foreach(_dll IN LISTS _dlls)
+                        file(COPY "${_dll}" DESTINATION "${_target_dir}")
+                    endforeach()
+                    file(REMOVE_RECURSE "${_bin_dir}")
+                endif()
+            endforeach()
+
+            foreach(_extra "include" "lib" "share" "licenses" "cmake")
+                set(_extra_path "${_prefix}/${_extra}")
+                if(EXISTS "${_extra_path}")
+                    file(REMOVE_RECURSE "${_extra_path}")
+                endif()
+            endforeach()
+
+            foreach(_maybe "Program Files" "Program Files (x86)")
+                set(_maybe_path "${_prefix}/${_maybe}")
+                if(EXISTS "${_maybe_path}")
+                    file(REMOVE_RECURSE "${_maybe_path}")
+                endif()
+            endforeach()
+
+            if(EXISTS "${_target_dir}/leo-pong.exe")
+                message(STATUS "Windows dist cleanup complete: ${_target_dir}")
+            else()
+                message(WARNING "Windows dist cleanup: leo-pong.exe not found under ${_target_dir}")
+            endif()
+        ]===])
+    endif()
 endif()
