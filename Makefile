@@ -48,37 +48,37 @@ ifeq ($(shell uname),Darwin)
 		mv dist/usr/local/leo-pong.app dist/; \
 		rm -rf dist/usr; \
 	fi
-else ifeq ($(OS),Windows_NT)
-	@echo "Creating Windows ZIP distribution..."
-	@powershell -NoProfile -Command "\
-		$root = Get-Location; \
-		$dist = Join-Path $root 'dist'; \
-		$expected = Join-Path $dist 'leo-pong'; \
-		$programFiles = Join-Path $dist 'Program Files'; \
-		$programFilesX86 = Join-Path $dist 'Program Files (x86)'; \
-		$gitRoot = Join-Path $programFiles 'Git'; \
-		$candidates = @($expected, Join-Path $gitRoot 'leo-pong', Join-Path $programFiles 'leo_pong', Join-Path $programFilesX86 'leo_pong'); \
-		foreach ($candidate in $candidates) { \
-			if (Test-Path $candidate) { \
-				if ($candidate -ne $expected) { \
-					if (Test-Path $expected) { Remove-Item -Recurse -Force $expected; } \
-					Move-Item -Path $candidate -Destination $expected -Force; \
+	else ifeq ($(OS),Windows_NT)
+		@echo "Creating Windows ZIP distribution..."
+		@powershell -NoProfile -Command "\
+			$$root = Get-Location; \
+			$$dist = Join-Path $$root 'dist'; \
+			$$expected = Join-Path $$dist 'leo-pong'; \
+			$$programFiles = Join-Path $$dist 'Program Files'; \
+			$$programFilesX86 = Join-Path $$dist 'Program Files (x86)'; \
+			$$gitRoot = Join-Path $$programFiles 'Git'; \
+			$$candidates = @($$expected, Join-Path $$gitRoot 'leo-pong', Join-Path $$programFiles 'leo_pong', Join-Path $$programFilesX86 'leo_pong'); \
+			foreach ($$candidate in $$candidates) { \
+				if (Test-Path $$candidate) { \
+					if ($$candidate -ne $$expected) { \
+						if (Test-Path $$expected) { Remove-Item -Recurse -Force $$expected; } \
+						Move-Item -Path $$candidate -Destination $$expected -Force; \
+					} \
+					break; \
 				} \
-				break; \
 			} \
-		} \
-		foreach ($cleanup in @($gitRoot, $programFiles, $programFilesX86)) { \
-			if (($cleanup -ne $expected) -and (Test-Path $cleanup)) { \
-				Remove-Item -Recurse -Force $cleanup; \
+			foreach ($$cleanup in @($$gitRoot, $$programFiles, $$programFilesX86)) { \
+				if (($$cleanup -ne $$expected) -and (Test-Path $$cleanup)) { \
+					Remove-Item -Recurse -Force $$cleanup; \
+				} \
 			} \
-		} \
-		if (Test-Path $expected) { \
-			$zip = Join-Path $dist 'leo-pong-windows-amd64-dist.zip'; \
-			if (Test-Path $zip) { Remove-Item $zip; } \
-			Compress-Archive -Path $expected -DestinationPath $zip -Force; \
-		} else { \
-			Write-Host 'Windows dist: expected directory not found (leo-pong)'; \
-		} \
+			if (Test-Path $$expected) { \
+				$$zip = Join-Path $$dist 'leo-pong-windows-amd64-dist.zip'; \
+				if (Test-Path $$zip) { Remove-Item $$zip; } \
+				Compress-Archive -Path $$expected -DestinationPath $$zip -Force; \
+			} else { \
+				Write-Host 'Windows dist: expected directory not found (leo-pong)'; \
+			} \
 	"
 endif
 	@rm -rf dist/include dist/lib dist/share dist/usr
