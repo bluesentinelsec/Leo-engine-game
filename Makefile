@@ -55,8 +55,8 @@ else ifeq ($(OS),Windows_NT)
 	@cmake -E make_directory dist
 	@cmake -E copy_directory dist-full/leo-pong dist/leo-pong
 	@cmake -E chdir dist cmake -E tar cf ../leo-pong-windows-amd64-dist.zip --format=zip leo-pong
-	@cmake -E copy ../leo-pong-windows-amd64-dist.zip dist/leo-pong-windows-amd64-dist.zip
-	@cmake -E rm -f ../leo-pong-windows-amd64-dist.zip
+	@cmake -E copy leo-pong-windows-amd64-dist.zip dist/leo-pong-windows-amd64-dist.zip
+	@cmake -E rm -f leo-pong-windows-amd64-dist.zip
 	@cmake -E remove_directory dist-full
 endif
 	@rm -rf dist/include dist/lib dist/share dist/usr
