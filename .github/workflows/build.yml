@@ -90,4 +90,4 @@ jobs:
       with:
         name: leo-pong-${{ matrix.os == 'ubuntu-22.04' && 'linux-amd64' || matrix.os == 'windows-latest' && 'windows-amd64' || 'macos-universal' }}-dist
         path: |
-          ${{ matrix.os == 'windows-latest' && 'dist/leo-pong' || 'dist/' }}
+          ${{ matrix.os == 'windows-latest' && 'dist/' || 'dist/' }}
