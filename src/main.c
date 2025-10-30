@@ -5,6 +5,7 @@
 
 #include <getopt.h>
 #include <leo/leo.h>
+#include <leo/io.h>
 
 typedef struct
 {
@@ -12,13 +13,94 @@ typedef struct
     int rect_height;
     bool one_frame;
     leo_WindowMode window_mode;
+    leo_Texture2D background;
+    bool background_ready;
 } GameState;
+
+static bool try_mount_resource_pack(const char *path, const char *password, int priority, bool verbose)
+{
+    if (!path || !*path)
+        return false;
+
+    if (verbose)
+        printf("Attempting to mount resource pack: %s\n", path);
+
+    if (leo_MountResourcePack(path, password, priority))
+    {
+        if (verbose)
+            printf("Mounted resource pack: %s\n", path);
+        return true;
+    }
+
+    if (verbose)
+        fprintf(stderr, "Failed to mount resource pack '%s': %s\n", path, leo_GetError());
+    return false;
+}
+
+static bool try_mount_resource_directory(const char *path, int priority, bool verbose)
+{
+    if (!path || !*path)
+        return false;
+
+    if (verbose)
+        printf("Attempting to mount resource directory: %s\n", path);
+
+    if (leo_MountDirectory(path, priority))
+    {
+        if (verbose)
+            printf("Mounted resource directory: %s\n", path);
+        return true;
+    }
+
+    if (verbose)
+        fprintf(stderr, "Failed to mount resource directory '%s': %s\n", path, leo_GetError());
+    return false;
+}
+
+static bool mount_resources(const char *override_path)
+{
+    const char *pack_password = "password";
+    leo_ClearMounts();
+
+    if (override_path)
+    {
+        bool mounted = try_mount_resource_pack(override_path, pack_password, 200, true) ||
+                       try_mount_resource_directory(override_path, 150, true);
+        if (!mounted)
+        {
+            fprintf(stderr,
+                    "Could not mount override resource path '%s' as pack or directory. Aborting.\n",
+                    override_path);
+        }
+        return mounted;
+    }
+
+    if (try_mount_resource_pack("resources.leopack", pack_password, 200, true))
+    {
+        return true;
+    }
+
+    if (try_mount_resource_directory("resources", 150, true))
+    {
+        return true;
+    }
+
+    fprintf(stderr, "Failed to mount default resource pack or directory. Aborting.\n");
+    return false;
+}
 
 static bool game_setup(leo_GameContext *ctx)
 {
     GameState *state = ctx->user_data;
     state->rect_width = 240;
     state->rect_height = 140;
+
+    state->background = leo_LoadTexture("images/background_1920x1080.png");
+    state->background_ready = leo_IsTextureReady(state->background);
+    if (!state->background_ready)
+    {
+        fprintf(stderr, "Failed to load background texture: %s\n", leo_GetError());
+    }
     return true;
 }
 
@@ -42,18 +124,25 @@ static void game_render(leo_GameContext *ctx)
 {
     GameState *state = ctx->user_data;
 
-    const int screen_w = leo_GetScreenWidth();
-    const int screen_h = leo_GetScreenHeight();
-    const int x = (screen_w - state->rect_width) / 2;
-    const int y = (screen_h - state->rect_height) / 2;
-    const leo_Color rect_color = {255, 180, 60, 255};
-
-    leo_DrawRectangle(x, y, state->rect_width, state->rect_height, rect_color);
+    if (state->background_ready)
+    {
+        const int screen_w = leo_GetScreenWidth();
+        const int screen_h = leo_GetScreenHeight();
+        leo_Rectangle src = {0, 0, (float)state->background.width, (float)state->background.height};
+        leo_Rectangle dest = {0, 0, (float)screen_w, (float)screen_h};
+        leo_Vector2 origin = {0, 0};
+        leo_DrawTexturePro(state->background, src, dest, origin, 0.0f, LEO_WHITE);
+    }
 }
 
 static void game_shutdown(leo_GameContext *ctx)
 {
-    (void)ctx;
+    GameState *state = ctx->user_data;
+    if (state->background_ready)
+    {
+        leo_UnloadTexture(&state->background);
+        state->background_ready = false;
+    }
 }
 
 static void print_usage(const char *prog)
@@ -64,6 +153,7 @@ static void print_usage(const char *prog)
     fprintf(stderr, "  --windowed, -w       Start in windowed mode\n");
     fprintf(stderr, "  --fullscreen, -f     Start in fullscreen exclusive mode (default)\n");
     fprintf(stderr, "  --borderless, -b     Start in borderless fullscreen mode\n");
+    fprintf(stderr, "  --resource-path, -r  Override resource pack or directory\n");
 }
 
 int main(int argc, char **argv)
@@ -73,6 +163,8 @@ int main(int argc, char **argv)
         .rect_height = 140,
         .one_frame = false,
         .window_mode = LEO_WINDOW_MODE_FULLSCREEN_EXCLUSIVE,
+        .background = {0},
+        .background_ready = false,
     };
 
     static struct option long_opts[] = {
@@ -80,11 +172,13 @@ int main(int argc, char **argv)
         {"windowed", no_argument, NULL, 'w'},
         {"fullscreen", no_argument, NULL, 'f'},
         {"borderless", no_argument, NULL, 'b'},
+        {"resource-path", required_argument, NULL, 'r'},
         {NULL, 0, NULL, 0},
     };
 
     int opt;
-    while ((opt = getopt_long(argc, argv, "1wfb", long_opts, NULL)) != -1)
+    const char *resource_path_override = NULL;
+    while ((opt = getopt_long(argc, argv, "1wfbr:", long_opts, NULL)) != -1)
     {
         switch (opt)
         {
@@ -100,6 +194,9 @@ int main(int argc, char **argv)
         case 'b':
             state.window_mode = LEO_WINDOW_MODE_BORDERLESS_FULLSCREEN;
             break;
+        case 'r':
+            resource_path_override = optarg;
+            break;
         case '?':
         default:
             print_usage(argv[0]);
@@ -107,14 +204,19 @@ int main(int argc, char **argv)
         }
     }
 
+    if (!mount_resources(resource_path_override))
+    {
+        return EXIT_FAILURE;
+    }
+
     leo_GameConfig config = {
-        .window_width = 1280,
-        .window_height = 720,
+        .window_width = 1920,
+        .window_height = 1080,
         .window_title = "Leo Engine Pong",
         .window_mode = state.window_mode,
         .target_fps = 60,
-        .logical_width = 1280,
-        .logical_height = 720,
+        .logical_width = 1920,
+        .logical_height = 1080,
         .presentation = LEO_LOGICAL_PRESENTATION_LETTERBOX,
         .scale_mode = LEO_SCALE_LINEAR,
         .clear_color = LEO_BLACK,
