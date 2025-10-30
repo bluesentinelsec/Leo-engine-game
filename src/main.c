@@ -6,6 +6,7 @@
 #include <getopt.h>
 #include <leo/leo.h>
 #include <leo/io.h>
+#include <leo/lua_game.h>
 
 typedef struct
 {
@@ -154,6 +155,7 @@ static void print_usage(const char *prog)
     fprintf(stderr, "  --fullscreen, -f     Start in fullscreen exclusive mode (default)\n");
     fprintf(stderr, "  --borderless, -b     Start in borderless fullscreen mode\n");
     fprintf(stderr, "  --resource-path, -r  Override resource pack or directory\n");
+    fprintf(stderr, "  --lua, -L            Run Lua entry point (scripts/game.lua)\n");
 }
 
 int main(int argc, char **argv)
@@ -173,12 +175,14 @@ int main(int argc, char **argv)
         {"fullscreen", no_argument, NULL, 'f'},
         {"borderless", no_argument, NULL, 'b'},
         {"resource-path", required_argument, NULL, 'r'},
+        {"lua", no_argument, NULL, 'L'},
         {NULL, 0, NULL, 0},
     };
 
     int opt;
     const char *resource_path_override = NULL;
-    while ((opt = getopt_long(argc, argv, "1wfbr:", long_opts, NULL)) != -1)
+    bool use_lua_entry = false;
+    while ((opt = getopt_long(argc, argv, "1wfbr:L", long_opts, NULL)) != -1)
     {
         switch (opt)
         {
@@ -197,6 +201,9 @@ int main(int argc, char **argv)
         case 'r':
             resource_path_override = optarg;
             break;
+        case 'L':
+            use_lua_entry = true;
+            break;
         case '?':
         default:
             print_usage(argv[0]);
@@ -207,6 +214,26 @@ int main(int argc, char **argv)
     if (!mount_resources(resource_path_override))
     {
         return EXIT_FAILURE;
+    }
+
+    if (use_lua_entry)
+    {
+        leo_LuaGameConfig lua_cfg = {
+            .window_title = "Leo Engine Lua Demo",
+            .window_width = 1920,
+            .window_height = 1080,
+            .target_fps = 60,
+            .clear_color = LEO_BLACK,
+            .script_path = "scripts/game.lua",
+            .user_data = NULL,
+        };
+
+        int lua_result = leo_LuaGameRun(&lua_cfg, NULL);
+        if (lua_result != 0)
+        {
+            fprintf(stderr, "Leo Lua game terminated with error code %d\n", lua_result);
+        }
+        return lua_result;
     }
 
     leo_GameConfig config = {
