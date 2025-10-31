@@ -135,6 +135,14 @@ if(APPLE AND DIST_BUILD)
         DESTINATION leo-pong.app/Contents/Resources/resources
         FILES_MATCHING PATTERN "*"
     )
+
+    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E make_directory
+            "$<TARGET_BUNDLE_CONTENT_DIR:${PROJECT_NAME}>/Resources/resources"
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            ${CMAKE_SOURCE_DIR}/resources
+            "$<TARGET_BUNDLE_CONTENT_DIR:${PROJECT_NAME}>/Resources/resources"
+        COMMENT "Copy game resources into the app bundle")
 else()
     set(_install_runtime_dir "leo-pong")
     install(TARGETS ${PROJECT_NAME}
