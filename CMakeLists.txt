@@ -106,6 +106,14 @@ if(TARGET Leo::Runtime)
     endif()
 endif()
 
+if(NOT (APPLE AND DIST_BUILD))
+    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            ${CMAKE_SOURCE_DIR}/resources
+            $<TARGET_FILE_DIR:${PROJECT_NAME}>/resources
+        COMMENT "Copy game resources next to the executable for runtime access")
+endif()
+
 if(UNIX AND NOT APPLE)
     target_link_options(${PROJECT_NAME} PRIVATE "-Wl,-z,origin")
 endif()
@@ -124,7 +132,7 @@ if(APPLE AND DIST_BUILD)
         )
     endif()
     install(DIRECTORY resources/
-        DESTINATION leo-pong.app/Contents/Resources
+        DESTINATION leo-pong.app/Contents/Resources/resources
         FILES_MATCHING PATTERN "*"
     )
 else()
