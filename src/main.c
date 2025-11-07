@@ -165,7 +165,11 @@ int main(int argc, char **argv)
         .window_width = 800,
         .window_height = 600,
         .window_mode = window_mode,
+#ifdef __EMSCRIPTEN__
+        .target_fps = 0,  // Let browser handle timing for web builds
+#else
         .target_fps = 60,
+#endif
         .logical_width = logical_width,
         .logical_height = logical_height,
         .presentation = LEO_LOGICAL_PRESENTATION_LETTERBOX,

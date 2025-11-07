@@ -231,8 +231,16 @@ function leo_init()
     camera.target_x = player.spawn_x + player.size / 2
     camera.target_y = player.spawn_y + player.size / 2
     
-    -- Create particles
-    for i = 1, 1000 do
+    -- Create particles (commented out for web performance testing)
+    --[[
+    local particle_count = 1000
+    -- Detect if running in web environment (Emscripten sets this)
+    if os.getenv("EMSCRIPTEN") or _G.Module then
+        particle_count = 200  -- Reduce particles for web performance
+        print("Web build detected, using", particle_count, "particles")
+    end
+    
+    for i = 1, particle_count do
         table.insert(particles, {
             x = math.random(0, 4160), -- Use world width (130 * 32)
             y = math.random(0, 2560), -- Use world height (80 * 32)
@@ -241,6 +249,7 @@ function leo_init()
             flash_timer = math.random() * 10
         })
     end
+    --]]
     
     return true
 end
@@ -585,7 +594,8 @@ function leo_update(dt)
         leo_update_transitions(dt)
     end
     
-    -- Update particles
+    -- Update particles (commented out for performance testing)
+    --[[
     for _, particle in ipairs(particles) do
         particle.x = particle.x + particle.vel_x * dt
         particle.y = particle.y + particle.vel_y * dt
@@ -605,6 +615,7 @@ function leo_update(dt)
         if particle.x < -10 then particle.x = world_width + 10 end
         if particle.x > world_width + 10 then particle.x = -10 end
     end
+    --]]
 end
 
 -- Helper function to safely convert to integer
@@ -656,12 +667,14 @@ function leo_render()
         end
     end
     
-    -- Draw particles
+    -- Draw particles (commented out for performance testing)
+    --[[
     for _, particle in ipairs(particles) do
         local flash = 0.5 + 0.5 * math.sin(particle.flash_timer * 3)
         local alpha = safe_int(180 * flash)
         leo_draw_circle(safe_int(particle.x), safe_int(particle.y), 1.5, 255, 140, 0, alpha)
     end
+    --]]
     
     -- Draw player
     if player.alive then
