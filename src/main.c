@@ -164,7 +164,7 @@ int main(int argc, char **argv)
         .rect_width = 240,
         .rect_height = 140,
         .one_frame = false,
-        .window_mode = LEO_WINDOW_MODE_FULLSCREEN_EXCLUSIVE,
+        .window_mode = LEO_WINDOW_MODE_WINDOWED,
         .background = {0},
         .background_ready = false,
     };
@@ -219,11 +219,11 @@ int main(int argc, char **argv)
     if (use_lua_entry)
     {
         leo_LuaGameConfig lua_cfg = {
-            .window_title = "Leo Engine Lua Demo",
-            .window_width = 1920,
-            .window_height = 1080,
+            .window_title = "Leo Engine - Tiled Map Demo",
+            .window_width = 800,
+            .window_height = 600,
             .target_fps = 60,
-            .clear_color = LEO_BLACK,
+            .clear_color = {32, 32, 64, 255},
             .script_path = "scripts/game.lua",
             .user_data = NULL,
         };
@@ -237,16 +237,16 @@ int main(int argc, char **argv)
     }
 
     leo_GameConfig config = {
-        .window_width = 1920,
-        .window_height = 1080,
-        .window_title = "Leo Engine Pong",
+        .window_width = 800,
+        .window_height = 600,
+        .window_title = "Leo Engine - Tiled Map Demo",
         .window_mode = state.window_mode,
         .target_fps = 60,
-        .logical_width = 1920,
-        .logical_height = 1080,
+        .logical_width = 800,
+        .logical_height = 600,
         .presentation = LEO_LOGICAL_PRESENTATION_LETTERBOX,
-        .scale_mode = LEO_SCALE_LINEAR,
-        .clear_color = LEO_BLACK,
+        .scale_mode = LEO_SCALE_NEAREST,
+        .clear_color = {32, 32, 64, 255},
         .start_paused = false,
         .user_data = &state,
     };
