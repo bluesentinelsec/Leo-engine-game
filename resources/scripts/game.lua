@@ -24,8 +24,8 @@ local music_sound = nil
 local camera = {
     target_x = 100,
     target_y = 100,
-    offset_x = 400,
-    offset_y = 300,
+    offset_x = 0,  -- Will be set to screen_width/2 in init
+    offset_y = 0,  -- Will be set to screen_height/2 in init
     rotation = 0,
     zoom = 1.0
 }
@@ -209,6 +209,25 @@ function leo_init()
     else
         print("Gamepad API not available")
     end
+    
+    -- Initialize camera with actual screen dimensions
+    if leo_get_screen_width and leo_get_screen_height then
+        local screen_w = leo_get_screen_width()
+        local screen_h = leo_get_screen_height()
+        camera.offset_x = screen_w / 2.0
+        camera.offset_y = screen_h / 2.0
+        print("Camera initialized with screen size:", screen_w .. "x" .. screen_h)
+        print("Camera offset:", camera.offset_x .. ", " .. camera.offset_y)
+    else
+        -- Fallback to hardcoded values
+        camera.offset_x = 400
+        camera.offset_y = 300
+        print("Using fallback camera offset")
+    end
+    
+    -- Set initial camera target to player spawn
+    camera.target_x = player.spawn_x + player.size / 2
+    camera.target_y = player.spawn_y + player.size / 2
     
     -- Create particles
     for i = 1, 1000 do
@@ -452,9 +471,17 @@ function leo_update(dt)
         end
     end
     
-    -- Update camera to follow player
+    -- Update camera to follow player and adjust for screen size changes
     camera.target_x = player.x + player.size / 2
     camera.target_y = player.y + player.size / 2
+    
+    -- Update camera offset if screen size changed (for fullscreen toggles)
+    if leo_get_screen_width and leo_get_screen_height then
+        local current_screen_w = leo_get_screen_width()
+        local current_screen_h = leo_get_screen_height()
+        camera.offset_x = current_screen_w / 2.0
+        camera.offset_y = current_screen_h / 2.0
+    end
     
     -- Keep player in world bounds (based on map size)
     local world_width = 800
