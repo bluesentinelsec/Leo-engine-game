@@ -27,7 +27,9 @@ local camera = {
     offset_x = 0,  -- Will be set to screen_width/2 in init
     offset_y = 0,  -- Will be set to screen_height/2 in init
     rotation = 0,
-    zoom = 1.0
+    zoom = 1.0,
+    last_screen_w = 0,  -- Track screen size changes
+    last_screen_h = 0
 }
 
 -- Initialize game
@@ -229,8 +231,16 @@ function leo_init()
     camera.target_x = player.spawn_x + player.size / 2
     camera.target_y = player.spawn_y + player.size / 2
     
-    -- Create particles
-    for i = 1, 1000 do
+    -- Create particles (commented out for web performance testing)
+    --[[
+    local particle_count = 1000
+    -- Detect if running in web environment (Emscripten sets this)
+    if os.getenv("EMSCRIPTEN") or _G.Module then
+        particle_count = 200  -- Reduce particles for web performance
+        print("Web build detected, using", particle_count, "particles")
+    end
+    
+    for i = 1, particle_count do
         table.insert(particles, {
             x = math.random(0, 4160), -- Use world width (130 * 32)
             y = math.random(0, 2560), -- Use world height (80 * 32)
@@ -239,6 +249,7 @@ function leo_init()
             flash_timer = math.random() * 10
         })
     end
+    --]]
     
     return true
 end
@@ -471,16 +482,21 @@ function leo_update(dt)
         end
     end
     
-    -- Update camera to follow player and adjust for screen size changes
+    -- Update camera to follow player
     camera.target_x = player.x + player.size / 2
     camera.target_y = player.y + player.size / 2
     
-    -- Update camera offset if screen size changed (for fullscreen toggles)
+    -- Only update camera offset if screen size changed (for fullscreen toggles)
     if leo_get_screen_width and leo_get_screen_height then
         local current_screen_w = leo_get_screen_width()
         local current_screen_h = leo_get_screen_height()
-        camera.offset_x = current_screen_w / 2.0
-        camera.offset_y = current_screen_h / 2.0
+        if current_screen_w ~= camera.last_screen_w or current_screen_h ~= camera.last_screen_h then
+            camera.offset_x = current_screen_w / 2.0
+            camera.offset_y = current_screen_h / 2.0
+            camera.last_screen_w = current_screen_w
+            camera.last_screen_h = current_screen_h
+            print("Camera offset updated:", camera.offset_x .. ", " .. camera.offset_y .. " (screen: " .. current_screen_w .. "x" .. current_screen_h .. ")")
+        end
     end
     
     -- Keep player in world bounds (based on map size)
@@ -524,42 +540,50 @@ function leo_update(dt)
             enemy.dir_y = -enemy.dir_y
         end
         
-        -- Check collision with player using multiple Leo collision APIs
+        -- Check collision with player using multiple Leo collision APIs (with distance culling)
         if leo_check_collision_recs then
-            local player_rect = {player.x, player.y, player.size, player.size}
-            local enemy_rect = {enemy.x, enemy.y, enemy.size, enemy.size}
+            -- Quick distance check first (cheaper than rectangle collision)
+            local dx = enemy.x - player.x
+            local dy = enemy.y - player.y
+            local distance_sq = dx * dx + dy * dy
             
-            -- Test rectangle collision (current method)
-            local rect_collision = leo_check_collision_recs(player_rect[1], player_rect[2], player_rect[3], player_rect[4],
-                                                           enemy_rect[1], enemy_rect[2], enemy_rect[3], enemy_rect[4])
-            
-            -- Test circle collision as alternative
-            local circle_collision = false
-            if leo_check_collision_circles then
-                local player_center_x = player.x + player.size/2
-                local player_center_y = player.y + player.size/2
-                local enemy_center_x = enemy.x + enemy.size/2
-                local enemy_center_y = enemy.y + enemy.size/2
-                circle_collision = leo_check_collision_circles(player_center_x, player_center_y, player.size/2,
-                                                              enemy_center_x, enemy_center_y, enemy.size/2)
-            end
-            
-            -- Test point-in-rectangle collision
-            local point_collision = false
-            if leo_check_collision_point_rec then
-                local player_center_x = player.x + player.size/2
-                local player_center_y = player.y + player.size/2
-                point_collision = leo_check_collision_point_rec(player_center_x, player_center_y,
-                                                               enemy.x, enemy.y, enemy.size, enemy.size)
-            end
-            
-            if rect_collision or circle_collision or point_collision then
-                player.alive = false
-                print("Collision detected! Rect:", rect_collision, "Circle:", circle_collision, "Point:", point_collision)
+            -- Skip if too far away (64 pixels = 2 tile widths, like C demo)
+            if distance_sq <= 64 * 64 then
+                local player_rect = {player.x, player.y, player.size, player.size}
+                local enemy_rect = {enemy.x, enemy.y, enemy.size, enemy.size}
                 
-                -- Play death sound
-                if ogre_sound and leo_play_sound then
-                    leo_play_sound(ogre_sound, 0.8, false)
+                -- Test rectangle collision (current method)
+                local rect_collision = leo_check_collision_recs(player_rect[1], player_rect[2], player_rect[3], player_rect[4],
+                                                               enemy_rect[1], enemy_rect[2], enemy_rect[3], enemy_rect[4])
+                
+                -- Test circle collision as alternative
+                local circle_collision = false
+                if leo_check_collision_circles then
+                    local player_center_x = player.x + player.size/2
+                    local player_center_y = player.y + player.size/2
+                    local enemy_center_x = enemy.x + enemy.size/2
+                    local enemy_center_y = enemy.y + enemy.size/2
+                    circle_collision = leo_check_collision_circles(player_center_x, player_center_y, player.size/2,
+                                                                  enemy_center_x, enemy_center_y, enemy.size/2)
+                end
+                
+                -- Test point-in-rectangle collision
+                local point_collision = false
+                if leo_check_collision_point_rec then
+                    local player_center_x = player.x + player.size/2
+                    local player_center_y = player.y + player.size/2
+                    point_collision = leo_check_collision_point_rec(player_center_x, player_center_y,
+                                                                   enemy.x, enemy.y, enemy.size, enemy.size)
+                end
+                
+                if rect_collision or circle_collision or point_collision then
+                    player.alive = false
+                    print("Collision detected! Rect:", rect_collision, "Circle:", circle_collision, "Point:", point_collision)
+                    
+                    -- Play death sound
+                    if ogre_sound and leo_play_sound then
+                        leo_play_sound(ogre_sound, 0.8, false)
+                    end
                 end
             end
         else
@@ -578,7 +602,8 @@ function leo_update(dt)
         leo_update_transitions(dt)
     end
     
-    -- Update particles
+    -- Update particles (commented out for performance testing)
+    --[[
     for _, particle in ipairs(particles) do
         particle.x = particle.x + particle.vel_x * dt
         particle.y = particle.y + particle.vel_y * dt
@@ -598,6 +623,7 @@ function leo_update(dt)
         if particle.x < -10 then particle.x = world_width + 10 end
         if particle.x > world_width + 10 then particle.x = -10 end
     end
+    --]]
 end
 
 -- Helper function to safely convert to integer
@@ -623,11 +649,25 @@ function leo_render()
         local dirt_layer = leo_tiled_find_tile_layer(tiled_map, "dirt-layer")
         local tree_layer = leo_tiled_find_tile_layer(tiled_map, "tree-layer")
         
+        -- Calculate visible tile range (culling like C demo)
+        local cam_left = camera.target_x - camera.offset_x / camera.zoom
+        local cam_top = camera.target_y - camera.offset_y / camera.zoom
+        local cam_width = leo_get_screen_width() / camera.zoom
+        local cam_height = leo_get_screen_height() / camera.zoom
+        
+        local start_x = math.max(0, math.floor(cam_left / 32) - 1)
+        local start_y = math.max(0, math.floor(cam_top / 32) - 1)
+        local end_x = math.floor((cam_left + cam_width) / 32) + 1
+        local end_y = math.floor((cam_top + cam_height) / 32) + 1
+        
         if dirt_layer and dirt_texture then
-            -- Simple tile rendering (no culling for now)
             local width, height = leo_tiled_tile_layer_get_size(dirt_layer)
-            for y = 0, height - 1 do
-                for x = 0, width - 1 do
+            end_x = math.min(end_x, width - 1)
+            end_y = math.min(end_y, height - 1)
+            
+            -- Only render visible tiles
+            for y = start_y, end_y do
+                for x = start_x, end_x do
                     local gid = leo_tiled_get_gid(dirt_layer, x, y)
                     if gid == 1 then -- Dirt tile
                         leo_draw_texture_rec(dirt_texture, 0, 0, 32, 32, x * 32, y * 32, 255, 255, 255, 255)
@@ -638,8 +678,12 @@ function leo_render()
         
         if tree_layer and tree_texture then
             local width, height = leo_tiled_tile_layer_get_size(tree_layer)
-            for y = 0, height - 1 do
-                for x = 0, width - 1 do
+            end_x = math.min(end_x, width - 1)
+            end_y = math.min(end_y, height - 1)
+            
+            -- Only render visible tiles
+            for y = start_y, end_y do
+                for x = start_x, end_x do
                     local gid = leo_tiled_get_gid(tree_layer, x, y)
                     if gid == 2 then -- Tree tile
                         leo_draw_texture_rec(tree_texture, 0, 0, 32, 32, x * 32, y * 32, 255, 255, 255, 255)
@@ -649,12 +693,14 @@ function leo_render()
         end
     end
     
-    -- Draw particles
+    -- Draw particles (commented out for performance testing)
+    --[[
     for _, particle in ipairs(particles) do
         local flash = 0.5 + 0.5 * math.sin(particle.flash_timer * 3)
         local alpha = safe_int(180 * flash)
         leo_draw_circle(safe_int(particle.x), safe_int(particle.y), 1.5, 255, 140, 0, alpha)
     end
+    --]]
     
     -- Draw player
     if player.alive then

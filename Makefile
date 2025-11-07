@@ -1,27 +1,81 @@
-.PHONY: build run clean web fmt
+# Makefile wrapper for CMake build
 
-build:
-	cmake -B build -S . -DCMAKE_BUILD_TYPE=Debug
-	cmake --build build --parallel
+BUILD_DIR_DEBUG = build-debug
+BUILD_DIR_RELEASE = build-release
+CMAKE = cmake
+MAKE = make
+
+.PHONY: all debug release clean clean-debug clean-release run run-debug run-release install dist fmt help
+
+all: release
+
+debug:
+	@mkdir -p $(BUILD_DIR_DEBUG)
+	@cd $(BUILD_DIR_DEBUG) && $(CMAKE) -DCMAKE_BUILD_TYPE=Debug .. && $(CMAKE) --build . --config Debug
 
 release:
-	cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
-	cmake --build build --parallel
+	@mkdir -p $(BUILD_DIR_RELEASE)
+	@cd $(BUILD_DIR_RELEASE) && $(CMAKE) -DCMAKE_BUILD_TYPE=Release .. && $(CMAKE) --build . --config Release
 
-# Run target: adjust per platform
-run: build
+build: release
+
+clean: clean-debug clean-release
+	@rm -rf dist $(BUILD_DIR_RELEASE)-dist
+
+clean-debug:
+	@rm -rf $(BUILD_DIR_DEBUG)
+
+clean-release:
+	@rm -rf $(BUILD_DIR_RELEASE)
+
+run: run-release
+
+run-debug: debug
+	@./$(BUILD_DIR_DEBUG)/leo-pong
+
+run-release: release
+	@./$(BUILD_DIR_RELEASE)/leo-pong
+
+install: 
+	@rm -rf dist
+	@mkdir -p dist
+	@mkdir -p $(BUILD_DIR_RELEASE)-dist
+	@cd $(BUILD_DIR_RELEASE)-dist && $(CMAKE) -DCMAKE_BUILD_TYPE=Release -DDIST_BUILD=ON -DCMAKE_INSTALL_PREFIX=/ .. && $(CMAKE) --build . --config Release
+	@cd $(BUILD_DIR_RELEASE)-dist && DESTDIR=../dist $(CMAKE) --build . --target install --config Release
 ifeq ($(shell uname),Darwin)
-	open build/leo-pong.app
-else
-	build/leo-pong
+	@echo "Creating macOS app bundle..."
+	@if [ -d dist/usr/local/leo-pong.app ]; then \
+		mv dist/usr/local/leo-pong.app dist/; \
+		rm -rf dist/usr; \
+	fi
+else ifeq ($(OS),Windows_NT)
+	@echo "Creating Windows ZIP distribution..."
+	@cmake -E rm -f dist/leo-pong-windows-amd64-dist.zip leo-pong-windows-amd64-dist.zip
+	@cmake -E rename dist dist-full
+	@cmake -E make_directory dist
+	@cmake -E copy_directory dist-full/leo-pong dist/leo-pong
+	@cmake -E chdir dist cmake -E tar cf ../leo-pong-windows-amd64-dist.zip --format=zip leo-pong
+	@cmake -E remove_directory dist-full
 endif
+	@rm -rf dist/include dist/lib dist/share dist/usr
+
+dist: install
 
 fmt:
-	clang-format -i src/*.c src/*.h
+	@clang-format -i src/*.c src/*.h
 
-clean:
-	rm -rf build
-
-web: clean
-	docker build . -t leo-pong-web:latest
-	docker run -it -p 8000:8000 leo-pong-web:latest
+help:
+	@echo "Available targets:"
+	@echo "  debug       - Build debug version"
+	@echo "  release     - Build release version"
+	@echo "  build       - Build release version (default)"
+	@echo "  clean       - Clean all build files"
+	@echo "  clean-debug - Clean debug build files"
+	@echo "  clean-release - Clean release build files"
+	@echo "  run         - Build and run release version"
+	@echo "  run-debug   - Build and run debug version"
+	@echo "  run-release - Build and run release version"
+	@echo "  install     - Create release build in dist/ folder"
+	@echo "  dist        - Same as install"
+	@echo "  fmt         - Format source code with clang-format"
+	@echo "  help        - Show this help"

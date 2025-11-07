@@ -162,8 +162,8 @@ int main(int argc, char **argv)
 
     leo_LuaGameConfig lua_cfg = {
         .window_title = "Leo Engine - Lua Game",
-        .window_width = 800,
-        .window_height = 600,
+        .window_width = 1280,
+        .window_height = 720,
         .window_mode = window_mode,
 #ifdef __EMSCRIPTEN__
         .target_fps = 0,  // Let browser handle timing for web builds
