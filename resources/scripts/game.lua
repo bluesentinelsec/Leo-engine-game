@@ -88,21 +88,23 @@ function leo_init()
             local player_layer = leo_tiled_find_object_layer(tiled_map, "player")
             if player_layer then
                 local count = leo_tiled_object_layer_get_count(player_layer)
+                print("Player layer object count:", count)
                 if count > 0 then
                     local player_obj = leo_tiled_object_layer_get_object(player_layer, 1)
-                    -- Check if coordinates are reasonable (within map bounds)
                     local map_width_px = width * 32
                     local map_height_px = height * 32
-                    if player_obj.x >= 0 and player_obj.x < map_width_px and 
-                       player_obj.y >= 0 and player_obj.y < map_height_px then
-                        player.x = player_obj.x
-                        player.y = player_obj.y
-                        print("✅ Player spawn: (" .. player.x .. ", " .. player.y .. ")")
-                    else
-                        print("⚠️ Player spawn out of bounds (" .. player_obj.x .. ", " .. player_obj.y .. "), using fallback")
-                        player.x = 100
-                        player.y = 100
-                    end
+                    print("Map bounds: " .. map_width_px .. "x" .. map_height_px .. " pixels")
+                    print("Raw player spawn: (" .. player_obj.x .. ", " .. player_obj.y .. ")")
+                    
+                    -- For now, let's use the coordinates as-is to match C demo behavior
+                    player.x = player_obj.x
+                    player.y = player_obj.y
+                    
+                    -- Set camera to center on this position
+                    camera.target_x = player.x + player.size / 2
+                    camera.target_y = player.y + player.size / 2
+                    
+                    print("✅ Player spawn: (" .. player.x .. ", " .. player.y .. ")")
                     print("Player object details:", player_obj.name, player_obj.type, player_obj.width, player_obj.height)
                 else
                     print("⚠️ Using fallback player spawn")
@@ -308,11 +310,19 @@ function leo_update(dt)
     camera.target_x = player.x + player.size / 2
     camera.target_y = player.y + player.size / 2
     
-    -- Keep player in bounds
+    -- Keep player in world bounds (based on map size)
+    local world_width = 800
+    local world_height = 600
+    if tiled_map then
+        local map_w, map_h = leo_tiled_map_get_size(tiled_map)
+        world_width = map_w * 32 - player.size
+        world_height = map_h * 32 - player.size
+    end
+    
     if player.x < 0 then player.x = 0 end
     if player.y < 0 then player.y = 0 end
-    if player.x > 800 - player.size then player.x = 800 - player.size end
-    if player.y > 600 - player.size then player.y = 600 - player.size end
+    if player.x > world_width then player.x = world_width end
+    if player.y > world_height then player.y = world_height end
     
     -- Update enemies
     for _, enemy in ipairs(enemies) do
