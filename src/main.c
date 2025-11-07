@@ -90,6 +90,7 @@ static void print_usage(const char *prog)
     fprintf(stderr, "  --borderless, -b     Start in borderless fullscreen mode (default)\n");
     fprintf(stderr, "  --resource-path, -r  Override resource pack or directory\n");
     fprintf(stderr, "  --script, -s         Specify Lua script path (default: scripts/game.lua)\n");
+    fprintf(stderr, "  --virtual-res        Enable virtual resolution WIDTHxHEIGHT (e.g. 320x200)\n");
     fprintf(stderr, "  --help, -h           Show this help message\n");
 }
 
@@ -102,6 +103,7 @@ int main(int argc, char **argv)
         {"borderless", no_argument, NULL, 'b'},
         {"resource-path", required_argument, NULL, 'r'},
         {"script", required_argument, NULL, 's'},
+        {"virtual-res", required_argument, NULL, 'v'},
         {"help", no_argument, NULL, 'h'},
         {NULL, 0, NULL, 0},
     };
@@ -111,8 +113,10 @@ int main(int argc, char **argv)
     const char *script_path = "scripts/game.lua";
     leo_WindowMode window_mode = LEO_WINDOW_MODE_BORDERLESS_FULLSCREEN;
     bool one_frame = false;
+    int logical_width = 0;
+    int logical_height = 0;
 
-    while ((opt = getopt_long(argc, argv, "1wfbr:s:h", long_opts, NULL)) != -1)
+    while ((opt = getopt_long(argc, argv, "1wfbr:s:v:h", long_opts, NULL)) != -1)
     {
         switch (opt)
         {
@@ -133,6 +137,13 @@ int main(int argc, char **argv)
             break;
         case 's':
             script_path = optarg;
+            break;
+        case 'v':
+            if (sscanf(optarg, "%dx%d", &logical_width, &logical_height) != 2)
+            {
+                fprintf(stderr, "Invalid virtual resolution format. Use WIDTHxHEIGHT (e.g. 320x200)\n");
+                return EXIT_FAILURE;
+            }
             break;
         case 'h':
             print_usage(argv[0]);
@@ -155,6 +166,10 @@ int main(int argc, char **argv)
         .window_height = 600,
         .window_mode = window_mode,
         .target_fps = 60,
+        .logical_width = logical_width,
+        .logical_height = logical_height,
+        .presentation = LEO_LOGICAL_PRESENTATION_LETTERBOX,
+        .scale_mode = LEO_SCALE_NEAREST,
         .clear_color = {32, 32, 64, 255},
         .script_path = script_path,
         .user_data = NULL,

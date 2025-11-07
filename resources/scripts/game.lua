@@ -27,7 +27,9 @@ local camera = {
     offset_x = 0,  -- Will be set to screen_width/2 in init
     offset_y = 0,  -- Will be set to screen_height/2 in init
     rotation = 0,
-    zoom = 1.0
+    zoom = 1.0,
+    last_screen_w = 0,  -- Track screen size changes
+    last_screen_h = 0
 }
 
 -- Initialize game
@@ -471,16 +473,21 @@ function leo_update(dt)
         end
     end
     
-    -- Update camera to follow player and adjust for screen size changes
+    -- Update camera to follow player
     camera.target_x = player.x + player.size / 2
     camera.target_y = player.y + player.size / 2
     
-    -- Update camera offset if screen size changed (for fullscreen toggles)
+    -- Only update camera offset if screen size changed (for fullscreen toggles)
     if leo_get_screen_width and leo_get_screen_height then
         local current_screen_w = leo_get_screen_width()
         local current_screen_h = leo_get_screen_height()
-        camera.offset_x = current_screen_w / 2.0
-        camera.offset_y = current_screen_h / 2.0
+        if current_screen_w ~= camera.last_screen_w or current_screen_h ~= camera.last_screen_h then
+            camera.offset_x = current_screen_w / 2.0
+            camera.offset_y = current_screen_h / 2.0
+            camera.last_screen_w = current_screen_w
+            camera.last_screen_h = current_screen_h
+            print("Camera offset updated:", camera.offset_x .. ", " .. camera.offset_y .. " (screen: " .. current_screen_w .. "x" .. current_screen_h .. ")")
+        end
     end
     
     -- Keep player in world bounds (based on map size)
