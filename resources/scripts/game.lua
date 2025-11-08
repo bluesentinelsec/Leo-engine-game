@@ -524,51 +524,65 @@ function leo_update(dt)
             enemy.dir_y = -enemy.dir_y
         end
         
-        -- Check collision with player using multiple Leo collision APIs
-        if leo_check_collision_recs then
-            local player_rect = {player.x, player.y, player.size, player.size}
-            local enemy_rect = {enemy.x, enemy.y, enemy.size, enemy.size}
+        -- Check collision with player using multiple Leo collision APIs (with camera culling)
+        -- Only check collisions for enemies near the camera view
+        local screen_w = leo_get_screen_width and leo_get_screen_width() or 1280
+        local screen_h = leo_get_screen_height and leo_get_screen_height() or 720
+        local collision_margin = 100 -- Extra margin for collision checks
+        local cam_left = camera.target_x - (screen_w / 2) / camera.zoom - collision_margin
+        local cam_right = camera.target_x + (screen_w / 2) / camera.zoom + collision_margin
+        local cam_top = camera.target_y - (screen_h / 2) / camera.zoom - collision_margin
+        local cam_bottom = camera.target_y + (screen_h / 2) / camera.zoom + collision_margin
+        
+        -- Only check collision if enemy is in camera bounds
+        if enemy.x >= cam_left and enemy.x <= cam_right and 
+           enemy.y >= cam_top and enemy.y <= cam_bottom then
             
-            -- Test rectangle collision (current method)
-            local rect_collision = leo_check_collision_recs(player_rect[1], player_rect[2], player_rect[3], player_rect[4],
-                                                           enemy_rect[1], enemy_rect[2], enemy_rect[3], enemy_rect[4])
-            
-            -- Test circle collision as alternative
-            local circle_collision = false
-            if leo_check_collision_circles then
-                local player_center_x = player.x + player.size/2
-                local player_center_y = player.y + player.size/2
-                local enemy_center_x = enemy.x + enemy.size/2
-                local enemy_center_y = enemy.y + enemy.size/2
-                circle_collision = leo_check_collision_circles(player_center_x, player_center_y, player.size/2,
-                                                              enemy_center_x, enemy_center_y, enemy.size/2)
-            end
-            
-            -- Test point-in-rectangle collision
-            local point_collision = false
-            if leo_check_collision_point_rec then
-                local player_center_x = player.x + player.size/2
-                local player_center_y = player.y + player.size/2
-                point_collision = leo_check_collision_point_rec(player_center_x, player_center_y,
-                                                               enemy.x, enemy.y, enemy.size, enemy.size)
-            end
-            
-            if rect_collision or circle_collision or point_collision then
-                player.alive = false
-                print("Collision detected! Rect:", rect_collision, "Circle:", circle_collision, "Point:", point_collision)
+            if leo_check_collision_recs then
+                local player_rect = {player.x, player.y, player.size, player.size}
+                local enemy_rect = {enemy.x, enemy.y, enemy.size, enemy.size}
                 
-                -- Play death sound
-                if ogre_sound and leo_play_sound then
-                    leo_play_sound(ogre_sound, 0.8, false)
+                -- Test rectangle collision (current method)
+                local rect_collision = leo_check_collision_recs(player_rect[1], player_rect[2], player_rect[3], player_rect[4],
+                                                               enemy_rect[1], enemy_rect[2], enemy_rect[3], enemy_rect[4])
+                
+                -- Test circle collision as alternative
+                local circle_collision = false
+                if leo_check_collision_circles then
+                    local player_center_x = player.x + player.size/2
+                    local player_center_y = player.y + player.size/2
+                    local enemy_center_x = enemy.x + enemy.size/2
+                    local enemy_center_y = enemy.y + enemy.size/2
+                    circle_collision = leo_check_collision_circles(player_center_x, player_center_y, player.size/2,
+                                                                  enemy_center_x, enemy_center_y, enemy.size/2)
                 end
-            end
-        else
-            -- Fallback to manual collision
-            local dx = enemy.x - player.x
-            local dy = enemy.y - player.y
-            if dx*dx + dy*dy < (enemy.size + player.size)*(enemy.size + player.size)/4 then
-                player.alive = false
-                print("Collision detected with manual method!")
+                
+                -- Test point-in-rectangle collision
+                local point_collision = false
+                if leo_check_collision_point_rec then
+                    local player_center_x = player.x + player.size/2
+                    local player_center_y = player.y + player.size/2
+                    point_collision = leo_check_collision_point_rec(player_center_x, player_center_y,
+                                                                   enemy.x, enemy.y, enemy.size, enemy.size)
+                end
+                
+                if rect_collision or circle_collision or point_collision then
+                    player.alive = false
+                    print("Collision detected! Rect:", rect_collision, "Circle:", circle_collision, "Point:", point_collision)
+                    
+                    -- Play death sound
+                    if ogre_sound and leo_play_sound then
+                        leo_play_sound(ogre_sound, 0.8, false)
+                    end
+                end
+            else
+                -- Fallback to manual collision
+                local dx = enemy.x - player.x
+                local dy = enemy.y - player.y
+                if dx*dx + dy*dy < (enemy.size + player.size)*(enemy.size + player.size)/4 then
+                    player.alive = false
+                    print("Collision detected with manual method!")
+                end
             end
         end
     end
@@ -618,16 +632,37 @@ function leo_render()
         leo_begin_mode2d(camera)
     end
     
-    -- Draw tiled map if available
+    -- Draw tiled map if available (with camera-based culling)
     if tiled_map and leo_tiled_find_tile_layer then
         local dirt_layer = leo_tiled_find_tile_layer(tiled_map, "dirt-layer")
         local tree_layer = leo_tiled_find_tile_layer(tiled_map, "tree-layer")
         
+        -- Calculate visible tile range based on camera
+        local screen_w = leo_get_screen_width and leo_get_screen_width() or 1280
+        local screen_h = leo_get_screen_height and leo_get_screen_height() or 720
+        
+        -- Camera bounds in world coordinates
+        local cam_left = camera.target_x - (screen_w / 2) / camera.zoom
+        local cam_right = camera.target_x + (screen_w / 2) / camera.zoom
+        local cam_top = camera.target_y - (screen_h / 2) / camera.zoom
+        local cam_bottom = camera.target_y + (screen_h / 2) / camera.zoom
+        
+        -- Convert to tile coordinates with margin
+        local tile_size = 32
+        local margin = 2 -- Extra tiles for smooth scrolling
+        local start_x = math.max(0, math.floor(cam_left / tile_size) - margin)
+        local end_x = math.floor(cam_right / tile_size) + margin
+        local start_y = math.max(0, math.floor(cam_top / tile_size) - margin)
+        local end_y = math.floor(cam_bottom / tile_size) + margin
+        
         if dirt_layer and dirt_texture then
-            -- Simple tile rendering (no culling for now)
+            -- Culled tile rendering for dirt layer
             local width, height = leo_tiled_tile_layer_get_size(dirt_layer)
-            for y = 0, height - 1 do
-                for x = 0, width - 1 do
+            end_x = math.min(end_x, width - 1)
+            end_y = math.min(end_y, height - 1)
+            
+            for y = start_y, end_y do
+                for x = start_x, end_x do
                     local gid = leo_tiled_get_gid(dirt_layer, x, y)
                     if gid == 1 then -- Dirt tile
                         leo_draw_texture_rec(dirt_texture, 0, 0, 32, 32, x * 32, y * 32, 255, 255, 255, 255)
@@ -637,9 +672,13 @@ function leo_render()
         end
         
         if tree_layer and tree_texture then
+            -- Culled tile rendering for tree layer
             local width, height = leo_tiled_tile_layer_get_size(tree_layer)
-            for y = 0, height - 1 do
-                for x = 0, width - 1 do
+            end_x = math.min(end_x, width - 1)
+            end_y = math.min(end_y, height - 1)
+            
+            for y = start_y, end_y do
+                for x = start_x, end_x do
                     local gid = leo_tiled_get_gid(tree_layer, x, y)
                     if gid == 2 then -- Tree tile
                         leo_draw_texture_rec(tree_texture, 0, 0, 32, 32, x * 32, y * 32, 255, 255, 255, 255)
@@ -649,11 +688,22 @@ function leo_render()
         end
     end
     
-    -- Draw particles
+    -- Draw particles (with camera culling)
+    local screen_w = leo_get_screen_width and leo_get_screen_width() or 1280
+    local screen_h = leo_get_screen_height and leo_get_screen_height() or 720
+    local cam_left = camera.target_x - (screen_w / 2) / camera.zoom - 50
+    local cam_right = camera.target_x + (screen_w / 2) / camera.zoom + 50
+    local cam_top = camera.target_y - (screen_h / 2) / camera.zoom - 50
+    local cam_bottom = camera.target_y + (screen_h / 2) / camera.zoom + 50
+    
     for _, particle in ipairs(particles) do
-        local flash = 0.5 + 0.5 * math.sin(particle.flash_timer * 3)
-        local alpha = safe_int(180 * flash)
-        leo_draw_circle(safe_int(particle.x), safe_int(particle.y), 1.5, 255, 140, 0, alpha)
+        -- Only render particles in camera view
+        if particle.x >= cam_left and particle.x <= cam_right and 
+           particle.y >= cam_top and particle.y <= cam_bottom then
+            local flash = 0.5 + 0.5 * math.sin(particle.flash_timer * 3)
+            local alpha = safe_int(180 * flash)
+            leo_draw_circle(safe_int(particle.x), safe_int(particle.y), 1.5, 255, 140, 0, alpha)
+        end
     end
     
     -- Draw player

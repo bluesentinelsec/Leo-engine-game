@@ -51,6 +51,12 @@ if(EMSCRIPTEN)
         "-sALLOW_MEMORY_GROWTH=1"
         "-sFORCE_FILESYSTEM"
         "-sASYNCIFY"
+        "-sASYNCIFY_STACK_SIZE=32768"
+        "-sINITIAL_MEMORY=67108864"
+        "-sMAXIMUM_MEMORY=134217728"
+        "-sSTACK_SIZE=65536"
+        "-sNO_EXIT_RUNTIME=1"
+        "-sEXPORTED_RUNTIME_METHODS=['ccall','cwrap']"
         "--shell-file=${CMAKE_SOURCE_DIR}/static/index.html"
         ${EMSCRIPTEN_PRELOAD_ARGS}
     )
