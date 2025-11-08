@@ -20,26 +20,29 @@ ENV PATH="/emsdk:/emsdk/upstream/emscripten:$PATH"
 ENV EM_CONFIG=/emsdk/.emscripten
 ENV EM_CACHE=/emsdk/.emscripten_cache
 
-# Copy Leo-engine-game source
-WORKDIR /leo-pong
+# Copy source
+WORKDIR /leo
 COPY . .
 
-# Build Leo-pong with Emscripten (using FetchContent)
+# Build with Emscripten
 RUN emcmake cmake -B build -S . -DCMAKE_BUILD_TYPE=Release \
+    -DLEO_BUILD_SHARED=OFF \
+    -DLEO_BUILD_TESTS=OFF \
  && cmake --build build --parallel
 
 # Prepare web output
 RUN mkdir -p /webdist && \
-    cp build/leo-pong.html /webdist/index.html && \
-    cp build/leo-pong.js /webdist/ && \
-    cp build/leo-pong.wasm /webdist/ && \
-    cp build/leo-pong.data /webdist/ && \
+    cp build/leo_pong.html /webdist/index.html && \
+    cp build/leo_pong.js /webdist/ && \
+    cp build/leo_pong.wasm /webdist/ && \
+    if [ -f build/leo_pong.data ]; then cp build/leo_pong.data /webdist/; fi && \
     if [ -f resources.leopack ]; then \
         cp resources.leopack /webdist/; \
     elif [ -d resources ]; then \
         cp -r resources /webdist/; \
     fi && \
     cd / && zip -r /webdist/webdist.zip webdist
+
 
 # =========================
 # Stage 2: Runtime
