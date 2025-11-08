@@ -6,7 +6,11 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 
 # Leo engine dependency
 include(FetchContent)
-set(LEO_BUILD_SHARED ON CACHE BOOL "Build Leo as shared" FORCE)
+if(EMSCRIPTEN)
+    set(LEO_BUILD_SHARED OFF CACHE BOOL "Build Leo as static for web" FORCE)
+else()
+    set(LEO_BUILD_SHARED ON CACHE BOOL "Build Leo as shared" FORCE)
+endif()
 set(LEO_BUILD_TESTS OFF CACHE BOOL "Skip tests" FORCE)
 
 # Distribution build option
@@ -27,8 +31,32 @@ file(GLOB_RECURSE SOURCES "src/*.c")
 list(APPEND SOURCES external/getopt/getopt.c)
 
 # Create executable
-add_executable(${PROJECT_NAME} ${SOURCES})
-target_include_directories(${PROJECT_NAME} PRIVATE external/getopt)
+if(EMSCRIPTEN)
+    add_executable(${PROJECT_NAME} ${SOURCES})
+    set_target_properties(${PROJECT_NAME} PROPERTIES SUFFIX ".html")
+    
+    target_link_libraries(${PROJECT_NAME} PRIVATE Leo::Runtime)
+    
+    # Conditional preload based on what's available
+    set(EMSCRIPTEN_PRELOAD_ARGS "")
+    if(EXISTS "${CMAKE_SOURCE_DIR}/resources.leopack")
+        set(EMSCRIPTEN_PRELOAD_ARGS "--preload-file=${CMAKE_SOURCE_DIR}/resources.leopack@/resources.leopack")
+    elseif(EXISTS "${CMAKE_SOURCE_DIR}/resources")
+        set(EMSCRIPTEN_PRELOAD_ARGS "--preload-file=${CMAKE_SOURCE_DIR}/resources@/resources")
+    endif()
+    
+    target_link_options(${PROJECT_NAME} PRIVATE
+        "-sUSE_SDL=3"
+        "-sALLOW_MEMORY_GROWTH=1"
+        "-sFORCE_FILESYSTEM"
+        "-sASYNCIFY"
+        "--shell-file=${CMAKE_SOURCE_DIR}/static/index.html"
+        ${EMSCRIPTEN_PRELOAD_ARGS}
+    )
+else()
+    add_executable(${PROJECT_NAME} ${SOURCES})
+    target_include_directories(${PROJECT_NAME} PRIVATE external/getopt)
+endif()
 
 # Fetch Leo engine and link it
 FetchContent_Declare(
@@ -38,88 +66,93 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(leo)
 
+if(NOT EMSCRIPTEN)
+    # Platform-specific executable configuration
+    if(APPLE AND DIST_BUILD)
+        set_target_properties(${PROJECT_NAME} PROPERTIES
+            MACOSX_BUNDLE TRUE
+            MACOSX_BUNDLE_INFO_PLIST ${CMAKE_SOURCE_DIR}/misc/Info.plist
+            OUTPUT_NAME "leo-pong"
+        )
+    else()
+        set_target_properties(${PROJECT_NAME} PROPERTIES
+            OUTPUT_NAME "leo-pong"
+        )
+    endif()
 
-# Platform-specific executable configuration
-if(APPLE AND DIST_BUILD)
-    set_target_properties(${PROJECT_NAME} PROPERTIES
-        MACOSX_BUNDLE TRUE
-        MACOSX_BUNDLE_INFO_PLIST ${CMAKE_SOURCE_DIR}/misc/Info.plist
-        OUTPUT_NAME "leo-pong"
-    )
-else()
-    set_target_properties(${PROJECT_NAME} PROPERTIES
-        OUTPUT_NAME "leo-pong"
-    )
-endif()
+    # Platform-specific linking
+    if(WIN32)
+        # Windows-specific libraries if needed
+    elseif(APPLE)
+        # macOS-specific frameworks if needed
+    elseif(UNIX)
+        # Linux-specific libraries if needed
+    endif()
 
-# Platform-specific linking
-if(WIN32)
-    # Windows-specific libraries if needed
-elseif(APPLE)
-    # macOS-specific frameworks if needed
-elseif(UNIX)
-    # Linux-specific libraries if needed
-endif()
-
-if(APPLE)
-    # Ensure the bundled app can locate shared libs in its Frameworks directory
-    set_property(TARGET ${PROJECT_NAME} APPEND PROPERTY BUILD_RPATH "@executable_path/../Frameworks")
-    set_property(TARGET ${PROJECT_NAME} APPEND PROPERTY INSTALL_RPATH "@executable_path/../Frameworks")
-elseif(UNIX)
-    # On Linux, load shared libs from alongside the executable
-    set_property(TARGET ${PROJECT_NAME} APPEND PROPERTY BUILD_RPATH "\$ORIGIN")
-    set_property(TARGET ${PROJECT_NAME} APPEND PROPERTY INSTALL_RPATH "\$ORIGIN")
+    if(APPLE)
+        # Ensure the bundled app can locate shared libs in its Frameworks directory
+        set_property(TARGET ${PROJECT_NAME} APPEND PROPERTY BUILD_RPATH "@executable_path/../Frameworks")
+        set_property(TARGET ${PROJECT_NAME} APPEND PROPERTY INSTALL_RPATH "@executable_path/../Frameworks")
+    elseif(UNIX)
+        # On Linux, load shared libs from alongside the executable
+        set_property(TARGET ${PROJECT_NAME} APPEND PROPERTY BUILD_RPATH "\$ORIGIN")
+        set_property(TARGET ${PROJECT_NAME} APPEND PROPERTY INSTALL_RPATH "\$ORIGIN")
+    endif()
 endif()
 
 target_link_libraries(${PROJECT_NAME} PRIVATE Leo::Runtime)
-if(TARGET SDL3::SDL3-shared)
-    target_link_libraries(${PROJECT_NAME} PRIVATE SDL3::SDL3-shared)
-endif()
 
-if(TARGET SDL3-shared)
-    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            $<TARGET_FILE:SDL3-shared>
-            $<TARGET_FILE_DIR:${PROJECT_NAME}>
-    )
-    if(NOT WIN32)
+if(NOT EMSCRIPTEN)
+    if(TARGET SDL3::SDL3-shared)
+        target_link_libraries(${PROJECT_NAME} PRIVATE SDL3::SDL3-shared)
+    endif()
+
+    if(TARGET SDL3-shared)
         add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                $<TARGET_SONAME_FILE:SDL3-shared>
-                $<TARGET_FILE_DIR:${PROJECT_NAME}>/$<TARGET_SONAME_FILE_NAME:SDL3-shared>
+                $<TARGET_FILE:SDL3-shared>
+                $<TARGET_FILE_DIR:${PROJECT_NAME}>
         )
+        if(NOT WIN32)
+            add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                    $<TARGET_SONAME_FILE:SDL3-shared>
+                    $<TARGET_FILE_DIR:${PROJECT_NAME}>/$<TARGET_SONAME_FILE_NAME:SDL3-shared>
+            )
+        endif()
+    endif()
+
+    if(TARGET Leo::Runtime)
+        add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                $<TARGET_FILE:Leo::Runtime>
+                $<TARGET_FILE_DIR:${PROJECT_NAME}>
+        )
+        if(NOT WIN32)
+            add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                    $<TARGET_SONAME_FILE:Leo::Runtime>
+                    $<TARGET_FILE_DIR:${PROJECT_NAME}>/$<TARGET_SONAME_FILE_NAME:Leo::Runtime>
+            )
+        endif()
+    endif()
+
+    if(NOT (APPLE AND DIST_BUILD))
+        add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_directory
+                ${CMAKE_SOURCE_DIR}/resources
+                $<TARGET_FILE_DIR:${PROJECT_NAME}>/resources
+            COMMENT "Copy game resources next to the executable for runtime access")
+    endif()
+
+    if(UNIX AND NOT APPLE)
+        target_link_options(${PROJECT_NAME} PRIVATE "-Wl,-z,origin")
     endif()
 endif()
 
-if(TARGET Leo::Runtime)
-    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            $<TARGET_FILE:Leo::Runtime>
-            $<TARGET_FILE_DIR:${PROJECT_NAME}>
-    )
-    if(NOT WIN32)
-        add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                $<TARGET_SONAME_FILE:Leo::Runtime>
-                $<TARGET_FILE_DIR:${PROJECT_NAME}>/$<TARGET_SONAME_FILE_NAME:Leo::Runtime>
-        )
-    endif()
-endif()
-
-if(NOT (APPLE AND DIST_BUILD))
-    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_directory
-            ${CMAKE_SOURCE_DIR}/resources
-            $<TARGET_FILE_DIR:${PROJECT_NAME}>/resources
-        COMMENT "Copy game resources next to the executable for runtime access")
-endif()
-
-if(UNIX AND NOT APPLE)
-    target_link_options(${PROJECT_NAME} PRIVATE "-Wl,-z,origin")
-endif()
-
-# Install target
-if(APPLE AND DIST_BUILD)
+# Install target (non-Emscripten only)
+if(NOT EMSCRIPTEN)
+    if(APPLE AND DIST_BUILD)
     install(TARGETS ${PROJECT_NAME}
         BUNDLE DESTINATION .
     )
