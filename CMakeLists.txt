@@ -28,6 +28,7 @@ endif()
 
 # Source files
 file(GLOB_RECURSE SOURCES "src/*.c")
+list(REMOVE_ITEM SOURCES "${CMAKE_SOURCE_DIR}/src/main_lua.c")
 list(APPEND SOURCES external/getopt/getopt.c)
 
 # Create executable

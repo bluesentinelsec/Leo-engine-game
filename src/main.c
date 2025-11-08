@@ -1,188 +1,324 @@
+#include <leo/leo.h>
+#include <leo/graphics.h>
+#include <math.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
-#include <getopt.h>
-#include <leo/leo.h>
-#include <leo/io.h>
-#include <leo/lua_game.h>
+#if defined(_WIN32)
+#include <direct.h>
+#include <windows.h>
+#define getcwd _getcwd
+#else
+#include <unistd.h>
+#endif
 
-static bool try_mount_resource_pack(const char *path, const char *password, int priority, bool verbose)
+typedef struct
 {
-    if (!path || !*path)
-        return false;
+    float x, y;
+    float vel_x, vel_y;
+    leo_Color color;
+    float radius;
+} Ball;
 
-    if (verbose)
-        printf("Attempting to mount resource pack: %s\n", path);
+typedef struct
+{
+    float x, y;
+    float speed;
+    leo_Color color;
+} Player;
 
-    if (leo_MountResourcePack(path, password, priority))
-    {
-        if (verbose)
-            printf("Mounted resource pack: %s\n", path);
-        return true;
-    }
+typedef struct
+{
+    Player player;
+    Ball balls[50];
+    int num_balls;
+    
+    // Background grid animation
+    float grid_offset;
+    
+    // Timing
+    double update_time;
+    double render_time;
+    double frame_time;
+    double last_frame_time;
+    
+    bool one_frame;
+} GameState;
 
-    if (verbose)
-        fprintf(stderr, "Failed to mount resource pack '%s': %s\n", path, leo_GetError());
-    return false;
+/* ----------------------------------------------------------
+   Transition callbacks
+   ---------------------------------------------------------- */
+static void on_fade_out_complete(void)
+{
+    exit(0);
 }
 
-static bool try_mount_resource_directory(const char *path, int priority, bool verbose)
+/* ----------------------------------------------------------
+   Timing helpers
+   ---------------------------------------------------------- */
+static double get_time_ms(void)
 {
-    if (!path || !*path)
-        return false;
+#if defined(_WIN32)
+    static LARGE_INTEGER freq;
+    static BOOL freq_set = FALSE;
+    LARGE_INTEGER counter;
 
-    if (verbose)
-        printf("Attempting to mount resource directory: %s\n", path);
-
-    if (leo_MountDirectory(path, priority))
+    if (!freq_set)
     {
-        if (verbose)
-            printf("Mounted resource directory: %s\n", path);
-        return true;
+        QueryPerformanceFrequency(&freq);
+        freq_set = TRUE;
     }
 
-    if (verbose)
-        fprintf(stderr, "Failed to mount resource directory '%s': %s\n", path, leo_GetError());
-    return false;
+    QueryPerformanceCounter(&counter);
+    return (double)counter.QuadPart * 1000.0 / (double)freq.QuadPart;
+#else
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return ts.tv_sec * 1000.0 + ts.tv_nsec / 1000000.0;
+#endif
 }
 
-static bool mount_resources(const char *override_path)
+/* ----------------------------------------------------------
+   Setup
+   ---------------------------------------------------------- */
+static bool demo_setup(leo_GameContext *ctx)
 {
-    const char *pack_password = "password";
-    leo_ClearMounts();
+    GameState *state = (GameState *)ctx->user_data;
 
-    if (override_path)
+    printf("=== Performance Test Setup ===\n");
+
+    // Initialize player
+    state->player.x = 640.0f;
+    state->player.y = 360.0f;
+    state->player.speed = 400.0f;
+    state->player.color = (leo_Color){255, 255, 255, 255}; // White
+
+    // Initialize bouncing balls
+    state->num_balls = 50;
+    srand((unsigned int)time(NULL));
+    
+    for (int i = 0; i < state->num_balls; i++)
     {
-        bool mounted = try_mount_resource_pack(override_path, pack_password, 200, true) ||
-                       try_mount_resource_directory(override_path, 150, true);
-        if (!mounted)
+        Ball *ball = &state->balls[i];
+        ball->x = (float)(rand() % 1280);
+        ball->y = (float)(rand() % 720);
+        ball->vel_x = ((float)(rand() % 200) - 100) * 2.0f; // -200 to 200
+        ball->vel_y = ((float)(rand() % 200) - 100) * 2.0f;
+        ball->radius = 10.0f + (float)(rand() % 20); // 10-30 radius
+        
+        // Random bright colors
+        ball->color = (leo_Color){
+            (unsigned char)(128 + rand() % 128), // 128-255
+            (unsigned char)(128 + rand() % 128),
+            (unsigned char)(128 + rand() % 128),
+            255
+        };
+    }
+
+    state->grid_offset = 0.0f;
+
+    // Disable automatic ESCAPE key exit
+    leo_SetExitKey(-1);
+
+    // Start fade-in transition
+    leo_StartFadeIn(1.0f, LEO_BLACK);
+
+    printf("✅ Performance test setup complete\n");
+    return true;
+}
+
+/* ----------------------------------------------------------
+   Update
+   ---------------------------------------------------------- */
+static void demo_update(leo_GameContext *ctx)
+{
+    GameState *state = (GameState *)ctx->user_data;
+    float dt = ctx->dt;
+
+    // Update transitions
+    leo_UpdateTransitions(dt);
+
+    // Handle ESCAPE key for fade-out and quit
+    if (leo_IsKeyPressed(KEY_ESCAPE) && !leo_IsTransitioning())
+    {
+        leo_StartFadeOut(1.0f, LEO_BLACK, on_fade_out_complete);
+    }
+
+    // Measure frame time
+    double current_time = get_time_ms();
+    if (state->last_frame_time > 0)
+    {
+        state->frame_time = current_time - state->last_frame_time;
+    }
+    state->last_frame_time = current_time;
+
+    double start_time = get_time_ms();
+
+    // Update player movement
+    float dx = 0, dy = 0;
+    if (leo_IsKeyDown(KEY_A) || leo_IsKeyDown(KEY_LEFT))
+        dx = -1;
+    if (leo_IsKeyDown(KEY_D) || leo_IsKeyDown(KEY_RIGHT))
+        dx = 1;
+    if (leo_IsKeyDown(KEY_W) || leo_IsKeyDown(KEY_UP))
+        dy = -1;
+    if (leo_IsKeyDown(KEY_S) || leo_IsKeyDown(KEY_DOWN))
+        dy = 1;
+
+    state->player.x += dx * state->player.speed * dt;
+    state->player.y += dy * state->player.speed * dt;
+
+    // Keep player on screen
+    if (state->player.x < 20) state->player.x = 20;
+    if (state->player.x > 1260) state->player.x = 1260;
+    if (state->player.y < 20) state->player.y = 20;
+    if (state->player.y > 700) state->player.y = 700;
+
+    // Update bouncing balls
+    for (int i = 0; i < state->num_balls; i++)
+    {
+        Ball *ball = &state->balls[i];
+        
+        ball->x += ball->vel_x * dt;
+        ball->y += ball->vel_y * dt;
+        
+        // Bounce off walls
+        if (ball->x <= ball->radius || ball->x >= 1280 - ball->radius)
         {
-            fprintf(stderr,
-                    "Could not mount override resource path '%s' as pack or directory. Aborting.\n",
-                    override_path);
+            ball->vel_x = -ball->vel_x;
+            ball->x = (ball->x <= ball->radius) ? ball->radius : 1280 - ball->radius;
         }
-        return mounted;
+        if (ball->y <= ball->radius || ball->y >= 720 - ball->radius)
+        {
+            ball->vel_y = -ball->vel_y;
+            ball->y = (ball->y <= ball->radius) ? ball->radius : 720 - ball->radius;
+        }
     }
 
-    if (try_mount_resource_pack("resources.leopack", pack_password, 200, true))
+    // Animate background grid
+    state->grid_offset += 50.0f * dt;
+    if (state->grid_offset >= 50.0f)
+        state->grid_offset -= 50.0f;
+
+    state->update_time = get_time_ms() - start_time;
+
+    // Escape hatch (CI/CD)
+    if (state->one_frame && ctx->frame >= 1)
     {
-        return true;
+        leo_GameQuit(ctx);
     }
-
-    if (try_mount_resource_directory("resources", 150, true))
-    {
-        return true;
-    }
-
-    fprintf(stderr, "Failed to mount default resource pack or directory. Aborting.\n");
-    return false;
 }
 
-static void print_usage(const char *prog)
+/* ----------------------------------------------------------
+   Render
+   ---------------------------------------------------------- */
+static void demo_render_ui(leo_GameContext *ctx)
 {
-    fprintf(stderr, "Usage: %s [OPTIONS]\n", prog);
-    fprintf(stderr, "Options:\n");
-    fprintf(stderr, "  --one-frame, -1      Run for one frame only (for testing)\n");
-    fprintf(stderr, "  --windowed, -w       Start in windowed mode\n");
-    fprintf(stderr, "  --fullscreen, -f     Start in fullscreen exclusive mode\n");
-    fprintf(stderr, "  --borderless, -b     Start in borderless fullscreen mode (default)\n");
-    fprintf(stderr, "  --resource-path, -r  Override resource pack or directory\n");
-    fprintf(stderr, "  --script, -s         Specify Lua script path (default: scripts/game.lua)\n");
-    fprintf(stderr, "  --virtual-res        Enable virtual resolution WIDTHxHEIGHT (e.g. 320x200)\n");
-    fprintf(stderr, "  --help, -h           Show this help message\n");
+    GameState *state = (GameState *)ctx->user_data;
+
+    double render_start = get_time_ms();
+
+    // Draw animated background grid
+    leo_Color grid_color = {40, 40, 80, 255};
+    for (int x = (int)(-state->grid_offset); x < 1280; x += 50)
+    {
+        leo_DrawLine(x, 0, x, 720, grid_color);
+    }
+    for (int y = (int)(-state->grid_offset); y < 720; y += 50)
+    {
+        leo_DrawLine(0, y, 1280, y, grid_color);
+    }
+
+    // Draw bouncing balls
+    for (int i = 0; i < state->num_balls; i++)
+    {
+        Ball *ball = &state->balls[i];
+        leo_DrawCircleFilled((int)ball->x, (int)ball->y, ball->radius, ball->color);
+        leo_DrawCircle((int)ball->x, (int)ball->y, ball->radius, LEO_WHITE);
+    }
+
+    // Draw player as a bright square with outline
+    leo_DrawRectangle((int)(state->player.x - 20), (int)(state->player.y - 20), 40, 40, state->player.color);
+    leo_DrawRectangleLines((int)(state->player.x - 20), (int)(state->player.y - 20), 40, 40, LEO_YELLOW);
+
+    // Draw player trail effect
+    for (int i = 1; i <= 5; i++)
+    {
+        leo_Color trail_color = {255, 255, 0, (unsigned char)(50 / i)};
+        leo_DrawRectangle((int)(state->player.x - 15 - i*2), (int)(state->player.y - 15 - i*2), 
+                         30 + i*4, 30 + i*4, trail_color);
+    }
+
+    state->render_time = get_time_ms() - render_start;
+
+    // UI overlay with performance info
+    leo_DrawFPS(20, 32);
+
+    // Timing info with color coding
+    char timing_text[256];
+    sprintf(timing_text, "Frame: %.2fms (%.1f FPS)", state->frame_time, 1000.0 / state->frame_time);
+    leo_Color fps_color = (state->frame_time > 20.0) ? LEO_RED : LEO_GREEN;
+    leo_DrawText(timing_text, 20, 60, 16, fps_color);
+
+    sprintf(timing_text, "Update: %.2fms", state->update_time);
+    leo_DrawText(timing_text, 20, 80, 16, LEO_GREEN);
+
+    sprintf(timing_text, "Render: %.2fms", state->render_time);
+    leo_DrawText(timing_text, 20, 100, 16, LEO_GREEN);
+
+    leo_DrawText("PERFORMANCE TEST - Use WASD to move", 20, 140, 20, LEO_YELLOW);
+    leo_DrawText("Watch for smooth movement and stable FPS", 20, 170, 16, LEO_WHITE);
+    leo_DrawText("Press ESC to quit", 20, 190, 16, LEO_GRAY);
+
+    // Render transitions (call this last to cover everything)
+    leo_RenderTransitions();
 }
 
+static void demo_shutdown(leo_GameContext *ctx)
+{
+    // Nothing to cleanup in this simple test
+}
+
+/* ----------------------------------------------------------
+   Entrypoint
+   ---------------------------------------------------------- */
 int main(int argc, char **argv)
 {
-    static struct option long_opts[] = {
-        {"one-frame", no_argument, NULL, '1'},
-        {"windowed", no_argument, NULL, 'w'},
-        {"fullscreen", no_argument, NULL, 'f'},
-        {"borderless", no_argument, NULL, 'b'},
-        {"resource-path", required_argument, NULL, 'r'},
-        {"script", required_argument, NULL, 's'},
-        {"virtual-res", required_argument, NULL, 'v'},
-        {"help", no_argument, NULL, 'h'},
-        {NULL, 0, NULL, 0},
-    };
-
-    int opt;
-    const char *resource_path_override = NULL;
-    const char *script_path = "scripts/game.lua";
-    leo_WindowMode window_mode = LEO_WINDOW_MODE_BORDERLESS_FULLSCREEN;
-    bool one_frame = false;
-    int logical_width = 0;
-    int logical_height = 0;
-
-    while ((opt = getopt_long(argc, argv, "1wfbr:s:v:h", long_opts, NULL)) != -1)
+    GameState state = {0};
+    
+    // Check for one-frame mode (for CI/CD testing)
+    for (int i = 1; i < argc; i++)
     {
-        switch (opt)
+        if (strcmp(argv[i], "--one-frame") == 0 || strcmp(argv[i], "-1") == 0)
         {
-        case '1':
-            one_frame = true;
+            state.one_frame = true;
             break;
-        case 'w':
-            window_mode = LEO_WINDOW_MODE_WINDOWED;
-            break;
-        case 'f':
-            window_mode = LEO_WINDOW_MODE_FULLSCREEN_EXCLUSIVE;
-            break;
-        case 'b':
-            window_mode = LEO_WINDOW_MODE_BORDERLESS_FULLSCREEN;
-            break;
-        case 'r':
-            resource_path_override = optarg;
-            break;
-        case 's':
-            script_path = optarg;
-            break;
-        case 'v':
-            if (sscanf(optarg, "%dx%d", &logical_width, &logical_height) != 2)
-            {
-                fprintf(stderr, "Invalid virtual resolution format. Use WIDTHxHEIGHT (e.g. 320x200)\n");
-                return EXIT_FAILURE;
-            }
-            break;
-        case 'h':
-            print_usage(argv[0]);
-            return EXIT_SUCCESS;
-        case '?':
-        default:
-            print_usage(argv[0]);
-            return EXIT_FAILURE;
         }
     }
 
-    if (!mount_resources(resource_path_override))
-    {
-        return EXIT_FAILURE;
-    }
-
-    leo_LuaGameConfig lua_cfg = {
-        .window_title = "Leo Engine - Lua Game",
+    leo_GameConfig cfg = {
         .window_width = 1280,
         .window_height = 720,
-        .window_mode = window_mode,
-#ifdef __EMSCRIPTEN__
-        .target_fps = 0,  // Let browser handle timing for web builds
-#else
+        .window_title = "Leo Engine - Performance Test",
         .target_fps = 60,
-#endif
-        .logical_width = logical_width,
-        .logical_height = logical_height,
+        .logical_width = 0,
+        .logical_height = 0,
         .presentation = LEO_LOGICAL_PRESENTATION_LETTERBOX,
         .scale_mode = LEO_SCALE_NEAREST,
-        .clear_color = {32, 32, 64, 255},
-        .script_path = script_path,
-        .user_data = NULL,
+        .clear_color = {20, 20, 40, 255}, // Dark blue background
+        .start_paused = false,
+        .user_data = &state,
     };
 
-    int lua_result = leo_LuaGameRun(&lua_cfg, NULL);
-    if (lua_result != 0)
-    {
-        fprintf(stderr, "Leo Lua game terminated with error code %d\n", lua_result);
-    }
-    return lua_result;
+    leo_GameCallbacks cb = {
+        .on_setup = demo_setup,
+        .on_update = demo_update,
+        .on_render_ui = demo_render_ui,
+        .on_shutdown = demo_shutdown,
+    };
+
+    return leo_GameRun(&cfg, &cb);
 }
