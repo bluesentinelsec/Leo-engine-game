@@ -1,130 +1,153 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html lang="en-us">
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Leo Pong - Web Build</title>
-    <style>
-        body {
-            margin: 0;
-            padding: 20px;
-            background: #222;
-            color: #fff;
-            font-family: Arial, sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-        
-        .container {
-            max-width: 1200px;
-            text-align: center;
-        }
-        
-        canvas.emscripten {
-            border: 2px solid #444;
-            background: #000;
-        }
-        
-        .controls {
-            margin: 20px 0;
-            padding: 15px;
-            background: #333;
-            border-radius: 8px;
-        }
-        
-        .status {
-            margin: 10px 0;
-            font-size: 14px;
-        }
-        
-        .progress {
-            width: 100%;
-            height: 20px;
-            background: #444;
-            border-radius: 10px;
-            overflow: hidden;
-            margin: 10px 0;
-        }
-        
-        .progress-bar {
-            height: 100%;
-            background: linear-gradient(90deg, #4CAF50, #45a049);
-            width: 0%;
-            transition: width 0.3s ease;
-        }
-    </style>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <title>Leo Pong</title>
+  <style>
+    body {
+      font-family: arial;
+      margin: 0;
+      padding: none;
+      background-color: black;
+    }
+    .emscripten { padding-right: 0; margin-left: auto; margin-right: auto; display: block; }
+    div.emscripten { text-align: center; }
+    div.emscripten_border { border: 1px solid black; }
+    canvas.emscripten { border: 0px none; background-color: black; }
+    .spinner {
+      height: 50px;
+      width: 50px;
+      margin: 0px auto;
+      -webkit-animation: rotation .8s linear infinite;
+      -moz-animation: rotation .8s linear infinite;
+      -o-animation: rotation .8s linear infinite;
+      animation: rotation 0.8s linear infinite;
+      border-left: 10px solid rgb(0,150,240);
+      border-right: 10px solid rgb(0,150,240);
+      border-bottom: 10px solid rgb(0,150,240);
+      border-top: 10px solid rgb(100,0,200);
+      border-radius: 100%;
+      background-color: rgb(200,100,250);
+    }
+    @-webkit-keyframes rotation {
+      from {-webkit-transform: rotate(0deg);}
+      to {-webkit-transform: rotate(360deg);}
+    }
+    @-moz-keyframes rotation {
+      from {-moz-transform: rotate(0deg);}
+      to {-moz-transform: rotate(360deg);}
+    }
+    @-o-keyframes rotation {
+      from {-o-transform: rotate(0deg);}
+      to {-o-transform: rotate(360deg);}
+    }
+    @keyframes rotation {
+      from {transform: rotate(0deg);}
+      to {transform: rotate(360deg);}
+    }
+    #status {
+      display: inline-block;
+      vertical-align: top;
+      margin-top: 20px;
+      margin-left: 20px;
+      font-weight: bold;
+      color: rgb(120, 120, 120);
+    }
+    #progress {
+      height: 20px;
+      width: 300px;
+    }
+    #controls {
+      display: inline-block;
+      float: right;
+      vertical-align: top;
+      margin-top: 20px;
+      margin-right: 20px;
+    }
+    #output {
+      width: 100%;
+      height: 200px;
+      margin: 0 auto;
+      margin-top: 10px;
+      border-left: 0px;
+      border-right: 0px;
+      padding-left: 0px;
+      padding-right: 0px;
+      display: block;
+      background-color: black;
+      color: white;
+      font-family: 'Lucida Console', Monaco, monospace;
+      outline: none;
+    }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <h1>🎮 Leo Pong</h1>
-        <p>Leo Engine Lua Game - Web Build</p>
-        
-        <div class="controls">
-            <strong>Controls:</strong><br>
-            WASD/Arrow Keys: Move | +/-: Zoom | ESC: Quit<br>
-            Mouse/Touch: Click to move | Space: Sound Test | M: Music
-        </div>
-        
-        <div class="status" id="status">Loading...</div>
-        <div class="progress">
-            <div class="progress-bar" id="progress"></div>
-        </div>
-        
-        <canvas class="emscripten" id="canvas" oncontextmenu="event.preventDefault()" tabindex=-1></canvas>
-        
-        <div style="margin-top: 20px; font-size: 12px; color: #888;">
-            Built with Leo Engine | Powered by Emscripten
-        </div>
-    </div>
+  <div class="spinner" id='spinner'></div>
+  <div class="emscripten" id="status">Downloading...</div>
+  <div class="emscripten">
+    <progress value="0" max="100" id="progress" hidden=1></progress>  
+  </div>
+  <div class="emscripten_border">
+    <canvas class="emscripten" id="canvas" oncontextmenu="event.preventDefault()" tabindex=-1></canvas>
+  </div>
+  <textarea class="emscripten" id="output" rows="8"></textarea>
 
-    <script type='text/javascript'>
-        var statusElement = document.getElementById('status');
-        var progressElement = document.getElementById('progress');
-        var canvasElement = document.getElementById('canvas');
+  <script type='text/javascript'>
+    var statusElement = document.getElementById('status');
+    var progressElement = document.getElementById('progress');
+    var spinnerElement = document.getElementById('spinner');
 
-        var Module = {
-            preRun: [],
-            postRun: [],
-            print: (function() {
-                return function(text) {
-                    console.log(text);
-                };
-            })(),
-            canvas: canvasElement,
-            // Request 60 FPS for smoother performance
-            targetFps: 60,
-            setStatus: function(text) {
-                if (!Module.setStatus.last) Module.setStatus.last = { time: Date.now(), text: '' };
-                if (text === Module.setStatus.last.text) return;
-                var m = text.match(/([^(]+)\((\d+(\.\d+)?)\/(\d+)\)/);
-                var now = Date.now();
-                if (m && now - Module.setStatus.last.time < 30) return; // if this is a progress update, skip it if too soon
-                Module.setStatus.last.time = now;
-                Module.setStatus.last.text = text;
-                statusElement.innerHTML = text;
-                
-                if (m) {
-                    var progress = parseInt(m[2]) / parseInt(m[4]) * 100;
-                    progressElement.style.width = progress + '%';
-                } else if (text === '') {
-                    progressElement.style.width = '100%';
-                    statusElement.innerHTML = 'Ready to play!';
-                }
-            },
-            totalDependencies: 0,
-            monitorRunDependencies: function(left) {
-                this.totalDependencies = Math.max(this.totalDependencies, left);
-                Module.setStatus(left ? 'Preparing... (' + (this.totalDependencies-left) + '/' + this.totalDependencies + ')' : 'All downloads complete.');
-            }
+    var Module = {
+      preRun: [],
+      postRun: [],
+      print: (function() {
+        var element = document.getElementById('output');
+        if (element) element.value = '';
+        return function(text) {
+          if (arguments.length > 1) text = Array.prototype.slice.call(arguments).join(' ');
+          console.log(text);
+          if (element) {
+            element.value += text + "\n";
+            element.scrollTop = element.scrollHeight;
+          }
         };
-        Module.setStatus('Downloading...');
-        window.onerror = function() {
-            Module.setStatus('Exception thrown, see JavaScript console');
-            progressElement.style.width = '100%';
-            progressElement.style.background = '#f44336';
-        };
-    </script>
-    {{{ SCRIPT }}}
+      })(),
+      canvas: (function() {
+        var canvas = document.getElementById('canvas');
+        canvas.addEventListener("webglcontextlost", function(e) { alert('WebGL context lost. You will need to reload the page.'); e.preventDefault(); }, false);
+        return canvas;
+      })(),
+      setStatus: function(text) {
+        if (!Module.setStatus.last) Module.setStatus.last = { time: Date.now(), text: '' };
+        if (text === Module.setStatus.last.text) return;
+        var m = text.match(/([^(]+)\((\d+(\.\d+)?)\/(\d+)\)/);
+        var now = Date.now();
+        if (m && now - Module.setStatus.last.time < 30) return;
+        Module.setStatus.last.time = now;
+        Module.setStatus.last.text = text;
+        if (text) {
+          statusElement.innerHTML = text;
+        } else {
+          spinnerElement.style.display = 'none';
+          statusElement.style.display = 'none';
+        }
+      },
+      totalDependencies: 0,
+      monitorRunDependencies: function(left) {
+        this.totalDependencies = Math.max(this.totalDependencies, left);
+        Module.setStatus(left ? 'Preparing... (' + (this.totalDependencies-left) + '/' + this.totalDependencies + ')' : 'All downloads complete.');
+      }
+    };
+    Module.setStatus('Downloading...');
+    window.onerror = function() {
+      Module.setStatus('Exception thrown, see JavaScript console');
+      spinnerElement.style.display = 'none';
+      Module.setStatus = function(text) {
+        if (text) console.error('[post-exception status] ' + text);
+      };
+    };
+  </script>
+  {{{ SCRIPT }}}
 </body>
 </html>

@@ -5,7 +5,7 @@ BUILD_DIR_RELEASE = build-release
 CMAKE = cmake
 MAKE = make
 
-.PHONY: all debug release clean clean-debug clean-release run run-debug run-release install dist fmt help
+.PHONY: all debug release clean clean-debug clean-release run run-debug run-release install dist fmt web help
 
 all: release
 
@@ -64,6 +64,10 @@ dist: install
 fmt:
 	@clang-format -i src/*.c src/*.h
 
+web: clean
+	docker build . -t leo-pong-web:latest
+	docker run -it -p 8000:8000 leo-pong-web:latest
+
 help:
 	@echo "Available targets:"
 	@echo "  debug       - Build debug version"
@@ -78,4 +82,5 @@ help:
 	@echo "  install     - Create release build in dist/ folder"
 	@echo "  dist        - Same as install"
 	@echo "  fmt         - Format source code with clang-format"
+	@echo "  web         - Build and serve web version via Docker"
 	@echo "  help        - Show this help"
