@@ -113,8 +113,8 @@ int main(int argc, char **argv)
     const char *script_path = "scripts/game.lua";
     leo_WindowMode window_mode = LEO_WINDOW_MODE_BORDERLESS_FULLSCREEN;
     bool one_frame = false;
-    int logical_width = 0;
-    int logical_height = 0;
+    int logical_width = 1280;
+    int logical_height = 720;
 
     while ((opt = getopt_long(argc, argv, "1wfbr:s:v:h", long_opts, NULL)) != -1)
     {
